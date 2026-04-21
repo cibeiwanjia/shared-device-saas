@@ -1,0 +1,315 @@
+syntax = "proto3";
+
+package api.user.v1;
+
+option go_package = "shared-device-saas/api/user/v1";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// ==================== 枚举 ====================
+
+enum OrderSource {
+  ORDER_SOURCE_UNSPECIFIED = 0;
+  ORDER_SOURCE_TICKET = 1;      // 门票
+  ORDER_SOURCE_BIKE = 2;        // 共享单车
+  ORDER_SOURCE_POWER_BANK = 3;  // 充电宝
+  ORDER_SOURCE_LOCKER = 4;      // 智能快递柜
+}
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;     // 待支付
+  ORDER_STATUS_PAID = 2;        // 已支付
+  ORDER_STATUS_COMPLETED = 3;   // 已完成
+  ORDER_STATUS_CANCELLED = 4;   // 已取消
+  ORDER_STATUS_REFUNDED = 5;    // 已退款
+}
+
+enum WalletTransactionType {
+  WALLET_TX_TYPE_UNSPECIFIED = 0;
+  WALLET_TX_TYPE_RECHARGE = 1;   // 充值
+  WALLET_TX_TYPE_CONSUME = 2;    // 消费
+  WALLET_TX_TYPE_REFUND = 3;     // 退款
+  WALLET_TX_TYPE_FREEZE = 4;     // 冻结
+  WALLET_TX_TYPE_UNFREEZE = 5;   // 解冻
+}
+
+enum RechargeStatus {
+  RECHARGE_STATUS_UNSPECIFIED = 0;
+  RECHARGE_STATUS_PENDING = 1;   // 待支付
+  RECHARGE_STATUS_PAID = 2;      // 已支付
+  RECHARGE_STATUS_FAILED = 3;    // 失败
+}
+
+enum PaymentMethod {
+  PAYMENT_METHOD_UNSPECIFIED = 0;
+  PAYMENT_METHOD_WECHAT = 1;     // 微信支付
+  PAYMENT_METHOD_ALIPAY = 2;     // 支付宝
+  PAYMENT_METHOD_WALLET = 3;     // 钱包余额
+}
+
+// ==================== 认证相关 ====================
+
+message LoginRequest {
+  string phone = 1;
+  string code = 2;           // 短信验证码
+  string device_id = 3;      // 设备指纹
+}
+
+message LoginReply {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;      // access_token 有效期（秒）
+  UserInfo user = 4;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+  string device_id = 2;
+}
+
+message RefreshTokenReply {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+}
+
+message LogoutRequest {}
+
+message LogoutReply {}
+
+// ==================== 用户信息 ====================
+
+message UserInfo {
+  int64 id = 1;
+  int64 tenant_id = 2;
+  string phone = 3;
+  string nickname = 4;
+  string avatar = 5;
+  string email = 6;
+  int64 created_at = 7;
+}
+
+message GetUserRequest {
+  int64 id = 1;
+}
+
+message UpdateUserRequest {
+  string nickname = 1;
+  string avatar = 2;
+  string email = 3;
+}
+
+message UpdateUserReply {
+  UserInfo user = 1;
+}
+
+// ==================== 会话管理 ====================
+
+message SessionInfo {
+  string session_id = 1;
+  string device_name = 2;
+  string ip = 3;
+  int64 login_at = 4;
+}
+
+message ListSessionsReply {
+  repeated SessionInfo sessions = 1;
+}
+
+message RevokeSessionRequest {
+  string session_id = 1;
+}
+
+message RevokeSessionReply {}
+
+// ==================== 多维订单查询 ====================
+
+message OrderFilter {
+  string created_after = 1;           // ISO8601 时间
+  string created_before = 2;
+  OrderSource source = 3;
+  OrderStatus status = 4;
+  int32 min_amount = 5;               // 金额（分）
+  int32 max_amount = 6;
+  PaymentMethod payment_method = 7;
+}
+
+message OrderSort {
+  string field = 1;                   // created_at / total_amount
+  string direction = 2;               // asc / desc
+}
+
+message ListOrdersRequest {
+  OrderFilter filter = 1;
+  OrderSort sort = 2;
+  int32 limit = 3;                    // 默认 20，最大 50
+  string cursor = 4;                  // 游标
+}
+
+message OrderItem {
+  int64 id = 1;
+  string order_no = 2;
+  OrderSource source = 3;
+  OrderStatus status = 4;
+  int32 total_amount = 5;             // 金额（分）
+  string currency = 6;
+  PaymentMethod payment_method = 7;
+  string title = 8;
+  string description = 9;
+  int64 created_at = 10;
+  int64 updated_at = 11;
+}
+
+message ListOrdersReply {
+  repeated OrderItem orders = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+  int32 total_count = 4;
+}
+
+// ==================== 图片上传 ====================
+
+message UploadImageRequest {
+  string file_name = 1;
+  string content_type = 2;
+  bytes data = 3;
+  string scene = 4;                   // avatar / order / work_order
+}
+
+message UploadImageReply {
+  string url = 1;
+  string key = 2;
+}
+
+message BatchUploadImagesRequest {
+  repeated UploadImageRequest files = 1;
+}
+
+message BatchUploadImagesReply {
+  repeated UploadImageReply results = 1;
+}
+
+message GetSignedURLRequest {
+  string key = 1;
+  int64 expiry_seconds = 2;
+}
+
+message GetSignedURLReply {
+  string url = 1;
+}
+
+// ==================== 钱包 ====================
+
+message GetWalletReply {
+  int64 wallet_id = 1;
+  int64 user_id = 2;
+  int64 available_balance = 3;        // 可用余额（分）
+  int64 frozen_amount = 4;            // 冻结金额（分）
+}
+
+message ListTransactionsRequest {
+  WalletTransactionType type = 1;
+  string created_after = 2;
+  string created_before = 3;
+  int32 limit = 4;
+  string cursor = 5;
+}
+
+message TransactionItem {
+  int64 id = 1;
+  WalletTransactionType type = 2;
+  int32 amount = 3;                   // 金额（分），正数=入账，负数=扣款
+  int64 balance_after = 4;            // 操作后余额
+  string order_no = 5;               // 关联订单号
+  string description = 6;
+  int64 created_at = 7;
+}
+
+message ListTransactionsReply {
+  repeated TransactionItem transactions = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
+// ==================== 充值 ====================
+
+message CreateRechargeRequest {
+  int32 amount = 1;                   // 充值金额（分），1.00~5000.00
+  PaymentMethod payment_method = 2;
+}
+
+message CreateRechargeReply {
+  int64 order_id = 1;
+  string order_no = 2;
+  string pay_params = 3;              // 支付参数（JSON，不同渠道格式不同）
+}
+
+message RechargeCallbackRequest {
+  string channel = 1;                 // wechat / alipay
+  string payload = 2;                 // 回调原始数据（JSON）
+  string signature = 3;
+}
+
+message RechargeCallbackReply {
+  bool success = 1;
+}
+
+message ListRechargesRequest {
+  RechargeStatus status = 1;
+  string created_after = 2;
+  string created_before = 3;
+  int32 limit = 4;
+  string cursor = 5;
+}
+
+message RechargeItem {
+  int64 id = 1;
+  string order_no = 2;
+  int32 amount = 3;
+  PaymentMethod payment_method = 4;
+  RechargeStatus status = 5;
+  int64 created_at = 6;
+  int64 paid_at = 7;
+}
+
+message ListRechargesReply {
+  repeated RechargeItem recharges = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
+// ==================== 服务定义 ====================
+
+service UserService {
+  // 认证
+  rpc Login(LoginRequest) returns (LoginReply);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenReply);
+  rpc Logout(LogoutRequest) returns (LogoutReply);
+
+  // 用户信息
+  rpc GetUser(GetUserRequest) returns (UserInfo);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserReply);
+
+  // 会话管理
+  rpc ListSessions(google.protobuf.Timestamp) returns (ListSessionsReply);
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionReply);
+
+  // 多维订单查询
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersReply);
+
+  // 图片上传（HTTP only，不支持 gRPC 流式）
+  rpc UploadImage(UploadImageRequest) returns (UploadImageReply);
+  rpc BatchUploadImages(BatchUploadImagesRequest) returns (BatchUploadImagesReply);
+  rpc GetSignedURL(GetSignedURLRequest) returns (GetSignedURLReply);
+
+  // 钱包
+  rpc GetWallet(google.protobuf.Timestamp) returns (GetWalletReply);
+  rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsReply);
+
+  // 充值
+  rpc CreateRecharge(CreateRechargeRequest) returns (CreateRechargeReply);
+  rpc RechargeCallback(RechargeCallbackRequest) returns (RechargeCallbackReply);
+  rpc ListRecharges(ListRechargesRequest) returns (ListRechargesReply);
+}

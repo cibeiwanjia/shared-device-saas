@@ -26,9 +26,14 @@ vendor/
 # IDE
 .idea/
 .vscode/
+.cursor/
+.opencode/
 *.swp
 *.swo
 *~
+
+# OpenSpec
+openspec/
 
 # OS
 .DS_Store
@@ -51,3 +56,4 @@ config/local.yaml
 config/local.yml
 config/*-local.yaml
 config/*-local.yml
+
