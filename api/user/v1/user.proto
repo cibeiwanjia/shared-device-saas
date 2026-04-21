@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package api.user.v1;
+
+option go_package = "shared-device-saas/api/user/v1;v1";
+
+import "google/api/annotations.proto";
+
+// 用户服务
+service UserService {
+  // 注册
+  rpc Register (RegisterRequest) returns (RegisterReply) {
+    option (google.api.http) = {
+      post: "/v1/user/register"
+      body: "*"
+    };
+  }
+
+  // 登录
+  rpc Login (LoginRequest) returns (LoginReply) {
+    option (google.api.http) = {
+      post: "/v1/user/login"
+      body: "*"
+    };
+  }
+
+  // 获取用户信息
+  rpc GetUser (GetUserRequest) returns (GetUserReply) {
+    option (google.api.http) = {
+      get: "/v1/user/{id}"
+    };
+  }
+
+  // 更新用户信息
+  rpc UpdateUser (UpdateUserRequest) returns (UpdateUserReply) {
+    option (google.api.http) = {
+      put: "/v1/user/{id}"
+      body: "*"
+    };
+  }
+}
+
+// 注册请求
+message RegisterRequest {
+  string username = 1;    // 用户名
+  string password = 2;    // 密码
+  string email = 3;       // 邮箱（可选）
+  string phone = 4;       // 手机号（可选）
+}
+
+// 注册响应
+message RegisterReply {
+  int64 id = 1;           // 用户ID
+  string username = 2;    // 用户名
+  string token = 3;       // 登录令牌
+}
+
+// 登录请求
+message LoginRequest {
+  string username = 1;    // 用户名
+  string password = 2;    // 密码
+}
+
+// 登录响应
+message LoginReply {
+  int64 id = 1;           // 用户ID
+  string username = 2;    // 用户名
+  string token = 3;       // 登录令牌
+}
+
+// 获取用户请求
+message GetUserRequest {
+  int64 id = 1;           // 用户ID
+}
+
+// 获取用户响应
+message GetUserReply {
+  int64 id = 1;           // 用户ID
+  string username = 2;    // 用户名
+  string email = 3;       // 邮箱
+  string phone = 4;       // 手机号
+  int64 created_at = 5;   // 创建时间
+  int64 updated_at = 6;   // 更新时间
+}
+
+// 更新用户请求
+message UpdateUserRequest {
+  int64 id = 1;           // 用户ID
+  string email = 2;       // 邮箱（可选）
+  string phone = 3;       // 手机号（可选）
+}
+
+// 更新用户响应
+message UpdateUserReply {
+  int64 id = 1;           // 用户ID
+  string username = 2;    // 用户名
+  string email = 3;       // 邮箱
+  string phone = 4;       // 手机号
+}
+
+// 错误原因枚举
+enum ErrorReason {
+  USER_NOT_FOUND = 0;     // 用户不存在
+  USER_ALREADY_EXISTS = 1; // 用户已存在
+  INVALID_PASSWORD = 2;   // 密码错误
+  INVALID_TOKEN = 3;      // 令牌无效
+}

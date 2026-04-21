@@ -1,7 +1,7 @@
 package server
 
 import (
-	v1 "shared-device-saas/api/helloworld/v1"
+	v1 "shared-device-saas/api/user/v1"
 	"shared-device-saas/app/storage/internal/conf"
 	"shared-device-saas/app/storage/internal/service"
 
