@@ -3,13 +3,44 @@ server:
     addr: 0.0.0.0:8000
     timeout: 1s
   grpc:
-    addr: 0.0.0.0:9000
+    addr: 0.0.0.0:9100
     timeout: 1s
+
 data:
   database:
     driver: mysql
-    source: root:root@tcp(127.0.0.1:3306)/test?parseTime=True&loc=Local
+    source: root:root@tcp(127.0.0.1:3306)/shared_device_user?parseTime=True&loc=Local
   redis:
     addr: 127.0.0.1:6379
     read_timeout: 0.2s
     write_timeout: 0.2s
+  mongo:
+    uri: "mongodb://127.0.0.1:27017"
+    database: "shared_device_user"
+    username: ""
+    password: ""
+    auth_source: "admin"
+    max_pool_size: 100
+    min_pool_size: 5
+    connect_timeout: 5s
+
+jwt:
+  secret: "change-me-in-production"
+  access_expire: 7200
+  refresh_expire: 604800
+  issuer: "shared-device-saas"
+
+storage:
+  provider: minio
+  bucket: "shared-device"
+  oss_endpoint: ""
+  oss_access_key_id: ""
+  oss_access_key_secret: ""
+  minio_endpoint: "127.0.0.1:9000"
+  minio_access_key: "minioadmin"
+  minio_secret_key: "minioadmin"
+  minio_use_ssl: false
+  rustfs_endpoint: "127.0.0.1:9002"
+  rustfs_access_key: "rustfsadmin"
+  rustfs_secret_key: "rustfsadmin"
+  rustfs_use_ssl: false
