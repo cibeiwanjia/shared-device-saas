@@ -19,18 +19,33 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
+const OperationUserServiceGetMe = "/api.user.v1.UserService/GetMe"
 const OperationUserServiceGetUser = "/api.user.v1.UserService/GetUser"
 const OperationUserServiceLogin = "/api.user.v1.UserService/Login"
+const OperationUserServiceLoginBySms = "/api.user.v1.UserService/LoginBySms"
+const OperationUserServiceLogout = "/api.user.v1.UserService/Logout"
+const OperationUserServiceRefreshToken = "/api.user.v1.UserService/RefreshToken"
 const OperationUserServiceRegister = "/api.user.v1.UserService/Register"
+const OperationUserServiceSendSmsCode = "/api.user.v1.UserService/SendSmsCode"
 const OperationUserServiceUpdateUser = "/api.user.v1.UserService/UpdateUser"
 
 type UserServiceHTTPServer interface {
-	// GetUser 获取用户信息
+	// GetMe 获取当前登录用户信息（不需要传id，从Token解析）
+	GetMe(context.Context, *GetMeRequest) (*GetMeReply, error)
+	// GetUser 获取用户信息（需要权限检查）
 	GetUser(context.Context, *GetUserRequest) (*GetUserReply, error)
-	// Login 登录
-	Login(context.Context, *LoginRequest) (*LoginReply, error)
-	// Register 注册
+	// Login 登录（账号 + 密码）
+	Login(context.Context, *LoginByPwdRequest) (*LoginReply, error)
+	// LoginBySms 短信验证码登录（自动注册）
+	LoginBySms(context.Context, *LoginBySmsRequest) (*LoginReply, error)
+	// Logout 退出登录
+	Logout(context.Context, *LogoutRequest) (*LogoutReply, error)
+	// RefreshToken 刷新 Token
+	RefreshToken(context.Context, *RefreshTokenRequest) (*LoginReply, error)
+	// Register 注册（手机号 + 密码）
 	Register(context.Context, *RegisterRequest) (*RegisterReply, error)
+	// SendSmsCode 发送短信验证码
+	SendSmsCode(context.Context, *SendSmsRequest) (*SendSmsReply, error)
 	// UpdateUser 更新用户信息
 	UpdateUser(context.Context, *UpdateUserRequest) (*UpdateUserReply, error)
 }
@@ -39,8 +54,13 @@ func RegisterUserServiceHTTPServer(s *http.Server, srv UserServiceHTTPServer) {
 	r := s.Route("/")
 	r.POST("/v1/user/register", _UserService_Register0_HTTP_Handler(srv))
 	r.POST("/v1/user/login", _UserService_Login0_HTTP_Handler(srv))
+	r.POST("/v1/user/sms/send", _UserService_SendSmsCode0_HTTP_Handler(srv))
+	r.POST("/v1/user/login/sms", _UserService_LoginBySms0_HTTP_Handler(srv))
+	r.POST("/v1/user/token/refresh", _UserService_RefreshToken0_HTTP_Handler(srv))
+	r.GET("/v1/me", _UserService_GetMe0_HTTP_Handler(srv))
 	r.GET("/v1/user/{id}", _UserService_GetUser0_HTTP_Handler(srv))
 	r.PUT("/v1/user/{id}", _UserService_UpdateUser0_HTTP_Handler(srv))
+	r.POST("/v1/user/logout", _UserService_Logout0_HTTP_Handler(srv))
 }
 
 func _UserService_Register0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx http.Context) error {
@@ -67,7 +87,7 @@ func _UserService_Register0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx htt
 
 func _UserService_Login0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
-		var in LoginRequest
+		var in LoginByPwdRequest
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
@@ -76,13 +96,98 @@ func _UserService_Login0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx http.C
 		}
 		http.SetOperation(ctx, OperationUserServiceLogin)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return srv.Login(ctx, req.(*LoginRequest))
+			return srv.Login(ctx, req.(*LoginByPwdRequest))
 		})
 		out, err := h(ctx, &in)
 		if err != nil {
 			return err
 		}
 		reply := out.(*LoginReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _UserService_SendSmsCode0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in SendSmsRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationUserServiceSendSmsCode)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.SendSmsCode(ctx, req.(*SendSmsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*SendSmsReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _UserService_LoginBySms0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in LoginBySmsRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationUserServiceLoginBySms)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.LoginBySms(ctx, req.(*LoginBySmsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*LoginReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _UserService_RefreshToken0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in RefreshTokenRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationUserServiceRefreshToken)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.RefreshToken(ctx, req.(*RefreshTokenRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*LoginReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _UserService_GetMe0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetMeRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationUserServiceGetMe)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetMe(ctx, req.(*GetMeRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetMeReply)
 		return ctx.Result(200, reply)
 	}
 }
@@ -134,13 +239,45 @@ func _UserService_UpdateUser0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx h
 	}
 }
 
+func _UserService_Logout0_HTTP_Handler(srv UserServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in LogoutRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationUserServiceLogout)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.Logout(ctx, req.(*LogoutRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*LogoutReply)
+		return ctx.Result(200, reply)
+	}
+}
+
 type UserServiceHTTPClient interface {
-	// GetUser 获取用户信息
+	// GetMe 获取当前登录用户信息（不需要传id，从Token解析）
+	GetMe(ctx context.Context, req *GetMeRequest, opts ...http.CallOption) (rsp *GetMeReply, err error)
+	// GetUser 获取用户信息（需要权限检查）
 	GetUser(ctx context.Context, req *GetUserRequest, opts ...http.CallOption) (rsp *GetUserReply, err error)
-	// Login 登录
-	Login(ctx context.Context, req *LoginRequest, opts ...http.CallOption) (rsp *LoginReply, err error)
-	// Register 注册
+	// Login 登录（账号 + 密码）
+	Login(ctx context.Context, req *LoginByPwdRequest, opts ...http.CallOption) (rsp *LoginReply, err error)
+	// LoginBySms 短信验证码登录（自动注册）
+	LoginBySms(ctx context.Context, req *LoginBySmsRequest, opts ...http.CallOption) (rsp *LoginReply, err error)
+	// Logout 退出登录
+	Logout(ctx context.Context, req *LogoutRequest, opts ...http.CallOption) (rsp *LogoutReply, err error)
+	// RefreshToken 刷新 Token
+	RefreshToken(ctx context.Context, req *RefreshTokenRequest, opts ...http.CallOption) (rsp *LoginReply, err error)
+	// Register 注册（手机号 + 密码）
 	Register(ctx context.Context, req *RegisterRequest, opts ...http.CallOption) (rsp *RegisterReply, err error)
+	// SendSmsCode 发送短信验证码
+	SendSmsCode(ctx context.Context, req *SendSmsRequest, opts ...http.CallOption) (rsp *SendSmsReply, err error)
 	// UpdateUser 更新用户信息
 	UpdateUser(ctx context.Context, req *UpdateUserRequest, opts ...http.CallOption) (rsp *UpdateUserReply, err error)
 }
@@ -153,7 +290,21 @@ func NewUserServiceHTTPClient(client *http.Client) UserServiceHTTPClient {
 	return &UserServiceHTTPClientImpl{client}
 }
 
-// GetUser 获取用户信息
+// GetMe 获取当前登录用户信息（不需要传id，从Token解析）
+func (c *UserServiceHTTPClientImpl) GetMe(ctx context.Context, in *GetMeRequest, opts ...http.CallOption) (*GetMeReply, error) {
+	var out GetMeReply
+	pattern := "/v1/me"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationUserServiceGetMe))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// GetUser 获取用户信息（需要权限检查）
 func (c *UserServiceHTTPClientImpl) GetUser(ctx context.Context, in *GetUserRequest, opts ...http.CallOption) (*GetUserReply, error) {
 	var out GetUserReply
 	pattern := "/v1/user/{id}"
@@ -167,8 +318,8 @@ func (c *UserServiceHTTPClientImpl) GetUser(ctx context.Context, in *GetUserRequ
 	return &out, nil
 }
 
-// Login 登录
-func (c *UserServiceHTTPClientImpl) Login(ctx context.Context, in *LoginRequest, opts ...http.CallOption) (*LoginReply, error) {
+// Login 登录（账号 + 密码）
+func (c *UserServiceHTTPClientImpl) Login(ctx context.Context, in *LoginByPwdRequest, opts ...http.CallOption) (*LoginReply, error) {
 	var out LoginReply
 	pattern := "/v1/user/login"
 	path := binding.EncodeURL(pattern, in, false)
@@ -181,12 +332,68 @@ func (c *UserServiceHTTPClientImpl) Login(ctx context.Context, in *LoginRequest,
 	return &out, nil
 }
 
-// Register 注册
+// LoginBySms 短信验证码登录（自动注册）
+func (c *UserServiceHTTPClientImpl) LoginBySms(ctx context.Context, in *LoginBySmsRequest, opts ...http.CallOption) (*LoginReply, error) {
+	var out LoginReply
+	pattern := "/v1/user/login/sms"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationUserServiceLoginBySms))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Logout 退出登录
+func (c *UserServiceHTTPClientImpl) Logout(ctx context.Context, in *LogoutRequest, opts ...http.CallOption) (*LogoutReply, error) {
+	var out LogoutReply
+	pattern := "/v1/user/logout"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationUserServiceLogout))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// RefreshToken 刷新 Token
+func (c *UserServiceHTTPClientImpl) RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...http.CallOption) (*LoginReply, error) {
+	var out LoginReply
+	pattern := "/v1/user/token/refresh"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationUserServiceRefreshToken))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Register 注册（手机号 + 密码）
 func (c *UserServiceHTTPClientImpl) Register(ctx context.Context, in *RegisterRequest, opts ...http.CallOption) (*RegisterReply, error) {
 	var out RegisterReply
 	pattern := "/v1/user/register"
 	path := binding.EncodeURL(pattern, in, false)
 	opts = append(opts, http.Operation(OperationUserServiceRegister))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// SendSmsCode 发送短信验证码
+func (c *UserServiceHTTPClientImpl) SendSmsCode(ctx context.Context, in *SendSmsRequest, opts ...http.CallOption) (*SendSmsReply, error) {
+	var out SendSmsReply
+	pattern := "/v1/user/sms/send"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationUserServiceSendSmsCode))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {

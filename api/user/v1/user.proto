@@ -8,7 +8,7 @@ import "google/api/annotations.proto";
 
 // 用户服务
 service UserService {
-  // 注册
+  // 注册（手机号 + 密码）
   rpc Register (RegisterRequest) returns (RegisterReply) {
     option (google.api.http) = {
       post: "/v1/user/register"
@@ -16,15 +16,46 @@ service UserService {
     };
   }
 
-  // 登录
-  rpc Login (LoginRequest) returns (LoginReply) {
+  // 登录（账号 + 密码）
+  rpc Login (LoginByPwdRequest) returns (LoginReply) {
     option (google.api.http) = {
       post: "/v1/user/login"
       body: "*"
     };
   }
 
-  // 获取用户信息
+  // 发送短信验证码
+  rpc SendSmsCode (SendSmsRequest) returns (SendSmsReply) {
+    option (google.api.http) = {
+      post: "/v1/user/sms/send"
+      body: "*"
+    };
+  }
+
+  // 短信验证码登录（自动注册）
+  rpc LoginBySms (LoginBySmsRequest) returns (LoginReply) {
+    option (google.api.http) = {
+      post: "/v1/user/login/sms"
+      body: "*"
+    };
+  }
+
+  // 刷新 Token
+  rpc RefreshToken (RefreshTokenRequest) returns (LoginReply) {
+    option (google.api.http) = {
+      post: "/v1/user/token/refresh"
+      body: "*"
+    };
+  }
+
+  // 获取当前登录用户信息（不需要传id，从Token解析）
+  rpc GetMe (GetMeRequest) returns (GetMeReply) {
+    option (google.api.http) = {
+      get: "/v1/me"
+    };
+  }
+
+  // 获取用户信息（需要权限检查）
   rpc GetUser (GetUserRequest) returns (GetUserReply) {
     option (google.api.http) = {
       get: "/v1/user/{id}"
@@ -38,70 +69,137 @@ service UserService {
       body: "*"
     };
   }
+
+  // 退出登录
+  rpc Logout (LogoutRequest) returns (LogoutReply) {
+    option (google.api.http) = {
+      post: "/v1/user/logout"
+      body: "*"
+    };
+  }
 }
 
-// 注册请求
+// 1. 账号密码登录
+message LoginByPwdRequest {
+  string username = 1;  // 账号：手机号/用户名
+  string password = 2;  // 密码（6-20位数字、字母、下划线）
+}
+
+// 2. 短信验证码登录（自动注册）
+message LoginBySmsRequest {
+  string phone = 1;       // 手机号（11位数字）
+  string code = 2;        // 短信验证码（6位数字）
+}
+
+// 3. 注册（手机号+验证码+密码+邀请码）
 message RegisterRequest {
-  string username = 1;    // 用户名
-  string password = 2;    // 密码
-  string email = 3;       // 邮箱（可选）
-  string phone = 4;       // 手机号（可选）
+  string phone = 1;       // 手机号（11位数字）
+  string smsCode = 2;     // 短信验证码（6位数字）
+  string password = 3;    // 密码（6-20位数字、字母、下划线）
+  string nickname = 4;    // 可选
+  string inviteCode = 5;  // 可选（邀请码）
 }
 
-// 注册响应
+// 4. 注册返回（只返回ID）
 message RegisterReply {
-  int64 id = 1;           // 用户ID
-  string username = 2;    // 用户名
-  string token = 3;       // 登录令牌
+  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
 }
 
-// 登录请求
-message LoginRequest {
-  string username = 1;    // 用户名
-  string password = 2;    // 密码
+// 5. 发送短信验证码
+message SendSmsRequest {
+  string phone = 1;       // 手机号（11位数字）
 }
 
-// 登录响应
+message SendSmsReply {
+  bool success = 1;        // 是否成功
+  int64 expire = 2;        // 过期时间（短信验证码多少秒后过期）
+}
+
+// 6. 登录统一返回（只保留前8个）
 message LoginReply {
-  int64 id = 1;           // 用户ID
-  string username = 2;    // 用户名
-  string token = 3;       // 登录令牌
+  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
+  string username = 2;    // 用户名（密码登录用的账号）
+  string phone = 3;       // 手机号（脱敏展示，比如 138****1234）
+  string nickname = 4;    // 昵称（页面显示的名字）
+  string avatar = 5;      // 头像URL（前端显示头像）
+  string accessToken = 6; // 访问令牌（调接口必须带，证明你登录了）
+  string refreshToken = 7;// 刷新令牌（accessToken过期时，用它换新的）
+  int64 expiresIn = 8;    // 过期时间（accessToken多少秒后过期）
 }
 
-// 获取用户请求
+// 7. 刷新Token
+message RefreshTokenRequest {
+  string refreshToken = 1; // 刷新令牌（accessToken过期时，用它换新的）
+}
+
+message RefreshTokenReply {
+  string accessToken = 1; // 访问令牌（调接口必须带，证明你登录了）
+  string refreshToken = 2; // 刷新令牌（accessToken过期时，用它换新的）
+  int64 expiresIn = 3;     // 过期时间（accessToken多少秒后过期）
+}
+
+// 8. 退出登录
+message LogoutRequest {
+  string refreshToken = 1; // 刷新令牌（accessToken过期时，用它换新的）
+}
+
+message LogoutReply {
+  bool success = 1;        // 是否成功
+  string message = 2;      // 提示信息（成功/失败原因）
+}
+
+// 9. 获取当前登录用户信息（不需要传id）
+message GetMeRequest {
+  // 无参数，从Token自动识别用户
+}
+
+message GetMeReply {
+  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
+  string username = 2;    // 用户名（密码登录用的账号）
+  string phone = 3;       // 手机号（脱敏展示，比如 138****1234）
+  string nickname = 4;    // 昵称（页面显示的名字）
+  string avatar = 5;      // 头像URL（前端显示头像）
+  string role = 6;        // 用户角色（user/admin）
+  int64 createTime = 7;   // 创建时间（时间戳）
+}
+
+// 10. 获取指定用户信息（需要权限检查）
 message GetUserRequest {
-  int64 id = 1;           // 用户ID
+  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
 }
 
-// 获取用户响应
 message GetUserReply {
-  int64 id = 1;           // 用户ID
-  string username = 2;    // 用户名
-  string email = 3;       // 邮箱
-  string phone = 4;       // 手机号
-  int64 created_at = 5;   // 创建时间
-  int64 updated_at = 6;   // 更新时间
+  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
+  string username = 2;    // 用户名（密码登录用的账号）
+  string phone = 3;       // 手机号（脱敏展示，比如 138****1234）
+  string nickname = 4;    // 昵称（页面显示的名字）
+  string avatar = 5;      // 头像URL（前端显示头像）
+  int64 createTime = 6;    // 创建时间（时间戳）
 }
 
-// 更新用户请求
+// 11. 更新用户信息（需要权限检查）
 message UpdateUserRequest {
-  int64 id = 1;           // 用户ID
-  string email = 2;       // 邮箱（可选）
-  string phone = 3;       // 手机号（可选）
+  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
+  string nickname = 2;  //昵称（页面显示的名字）
+  string avatar = 3;    // 头像URL（前端显示头像）
 }
 
-// 更新用户响应
 message UpdateUserReply {
-  int64 id = 1;           // 用户ID
-  string username = 2;    // 用户名
-  string email = 3;       // 邮箱
-  string phone = 4;       // 手机号
+  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
+  string nickname = 2;    // 昵称（页面显示的名字）
+  string avatar = 3;      // 头像URL（前端显示头像）
 }
 
 // 错误原因枚举
 enum ErrorReason {
-  USER_NOT_FOUND = 0;     // 用户不存在
+  USER_NOT_FOUND = 0;      // 用户不存在
   USER_ALREADY_EXISTS = 1; // 用户已存在
-  INVALID_PASSWORD = 2;   // 密码错误
-  INVALID_TOKEN = 3;      // 令牌无效
+  INVALID_PASSWORD = 2;    // 密码错误
+  INVALID_TOKEN = 3;       // 令牌无效
+  USER_DISABLED = 4;       // 用户已禁用
+  SMS_CODE_INVALID = 5;    // 验证码无效
+  SMS_CODE_EXPIRED = 6;    // 验证码过期
+  SMS_SEND_LIMIT = 7;      // 短信发送频率限制
+  PASSWORD_LOCKED = 8;     // 密码错误次数过多被锁定
+  PERMISSION_DENIED = 9;   // 权限不足（无权操作该用户）
 }

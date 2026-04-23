@@ -1,15 +1,31 @@
 server:
   http:
-    addr: 0.0.0.0:8000
+    addr: 0.0.0.0:8001
     timeout: 1s
   grpc:
-    addr: 0.0.0.0:9000
+    addr: 0.0.0.0:9001
     timeout: 1s
 data:
   database:
     driver: mysql
     source: root:4ay1nkal3u8ed77y@tcp(115.190.17.186:3306)/2307a-mall?parseTime=True&loc=Local
   redis:
-    addr: 127.0.0.1:6379
+    addr: 115.190.17.186:6379
+    password: 4ay1nkal3u8ed77y
+    db: 0
     read_timeout: 0.2s
     write_timeout: 0.2s
+  mongodb:
+    uri: mongodb://root:123456@115.190.17.186:27017/admin
+    database: test
+    collection: user
+  jwt:
+    access_secret: "shared-device-saas-access-secret-2024"
+    refresh_secret: "shared-device-saas-refresh-secret-2024"
+    access_expiry: "7200s"
+    refresh_expiry: "604800s"
+  sms:
+    api_url: "https://api.ihuyi.com/sms/Submit.json"
+    account: "C22367422"
+    password: "41dcf87e3f958594f1a14a9c458c88fc"
+    template_id: "1"

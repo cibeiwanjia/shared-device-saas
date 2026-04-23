@@ -97,12 +97,12 @@ func hasRole(userRoles, requiredRoles []string) bool {
 
 // --- Context 取值工具函数 ---
 
-// GetUserID 从 Context 获取用户 ID
-func GetUserID(ctx context.Context) int64 {
-	if v, ok := ctx.Value(contextKeyUserID).(int64); ok {
+// GetUserID 从 Context 获取用户 ID（返回 MongoDB ObjectID.Hex()）
+func GetUserID(ctx context.Context) string {
+	if v, ok := ctx.Value(contextKeyUserID).(string); ok {
 		return v
 	}
-	return 0
+	return ""
 }
 
 // GetTenantID 从 Context 获取租户 ID

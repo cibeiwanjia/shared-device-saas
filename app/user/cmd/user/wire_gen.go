@@ -7,14 +7,13 @@
 package main
 
 import (
+	"github.com/go-kratos/kratos/v2"
+	"github.com/go-kratos/kratos/v2/log"
 	"shared-device-saas/app/user/internal/biz"
 	"shared-device-saas/app/user/internal/conf"
 	"shared-device-saas/app/user/internal/data"
 	"shared-device-saas/app/user/internal/server"
 	"shared-device-saas/app/user/internal/service"
-
-	"github.com/go-kratos/kratos/v2"
-	"github.com/go-kratos/kratos/v2/log"
 )
 
 import (
@@ -25,17 +24,26 @@ import (
 
 // wireApp init kratos application.
 func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
-	dataData, cleanup, err := data.NewData(confData)
+	dataData, cleanup, err := data.NewData(confData, logger)
 	if err != nil {
 		return nil, nil, err
 	}
-	userRepo := data.NewUserRepo(dataData, logger)
-	userUsecase := biz.NewUserUsecase(userRepo, logger)
+	userRepo := data.NewUserRepo(dataData, confData, logger)
+	client, cleanup2, err := data.NewRedisClient(confData, logger)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	ihuyiClient := data.NewSMSClient(confData, logger)
+	jwtManager := biz.NewJWTManager(confData, logger)
+	userUsecase := biz.NewUserUsecase(userRepo, client, ihuyiClient, jwtManager, logger)
 	userService := service.NewUserService(userUsecase)
 	grpcServer := server.NewGRPCServer(confServer, userService, logger)
-	httpServer := server.NewHTTPServer(confServer, userService, logger)
+	blacklist := data.NewRedisBlacklist(client, logger)
+	httpServer := server.NewHTTPServer(confServer, userService, jwtManager, blacklist, logger)
 	app := newApp(logger, grpcServer, httpServer)
 	return app, func() {
+		cleanup2()
 		cleanup()
 	}, nil
 }

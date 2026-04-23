@@ -9,7 +9,7 @@ import (
 
 // Claims 自定义 JWT Claims
 type Claims struct {
-	UserID    int64    `json:"user_id"`
+	UserID    string   `json:"user_id"`    // MongoDB ObjectID.Hex() (改为 string)
 	TenantID  int64    `json:"tenant_id"`
 	SessionID string   `json:"session_id"`
 	DeviceID  string   `json:"device_id"`
@@ -43,12 +43,12 @@ func NewJWTManager(accessSecret, refreshSecret string, accessExpiry, refreshExpi
 }
 
 // GenerateTokenPair 签发 Access Token + Refresh Token
-func (m *JWTManager) GenerateTokenPair(userID, tenantID int64, sessionID, deviceID string, roles []string) (*TokenPair, error) {
+func (m *JWTManager) GenerateTokenPair(userID string, tenantID int64, sessionID, deviceID string, roles []string) (*TokenPair, error) {
 	now := time.Now()
 	jti := NewJTI()
 
 	accessClaims := Claims{
-		UserID:    userID,
+		UserID:    userID, // 直接使用 MongoDB ObjectID.Hex()
 		TenantID:  tenantID,
 		SessionID: sessionID,
 		DeviceID:  deviceID,
