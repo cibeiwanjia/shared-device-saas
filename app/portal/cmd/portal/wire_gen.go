@@ -7,13 +7,13 @@
 package main
 
 import (
+	"github.com/go-kratos/kratos/v2"
+	"github.com/go-kratos/kratos/v2/log"
 	"shared-device-saas/app/portal/internal/biz"
 	"shared-device-saas/app/portal/internal/conf"
 	"shared-device-saas/app/portal/internal/data"
 	"shared-device-saas/app/portal/internal/server"
 	"shared-device-saas/app/portal/internal/service"
-	"github.com/go-kratos/kratos/v2"
-	"github.com/go-kratos/kratos/v2/log"
 )
 
 import (
