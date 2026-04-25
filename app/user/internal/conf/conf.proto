@@ -8,6 +8,8 @@ import "google/protobuf/duration.proto";
 message Bootstrap {
   Server server = 1;
   Data data = 2;
+  JWT jwt = 3;
+  Storage storage = 4;
 }
 
 message Server {
@@ -54,9 +56,50 @@ message Data {
     string password = 3;     // APIKEY
     string template_id = 4;  // 短信模板ID
   }
+  message Mongo {
+    string uri = 1;
+    string database = 2;
+    string username = 3;
+    string password = 4;
+    string auth_source = 5;
+    int32 max_pool_size = 6;
+    int32 min_pool_size = 7;
+    google.protobuf.Duration connect_timeout = 8;
+  }
   Database database = 1;
   Redis redis = 2;
+<<<<<<< HEAD
   MongoDB mongodb = 3;
   JWT jwt = 4;
   SMS sms = 5;
 }
+=======
+  Mongo mongo = 3;
+}
+
+message JWT {
+  string secret = 1;
+  int64 access_expire = 2;
+  int64 refresh_expire = 3;
+  string issuer = 4;
+}
+
+message Storage {
+  string provider = 1;  // oss / minio / rustfs
+  string bucket = 2;
+  // 阿里云 OSS
+  string oss_endpoint = 3;
+  string oss_access_key_id = 4;
+  string oss_access_key_secret = 5;
+  // MinIO
+  string minio_endpoint = 6;
+  string minio_access_key = 7;
+  string minio_secret_key = 8;
+  bool minio_use_ssl = 9;
+  // RustFS
+  string rustfs_endpoint = 10;
+  string rustfs_access_key = 11;
+  string rustfs_secret_key = 12;
+  bool rustfs_use_ssl = 13;
+}
+>>>>>>> dev/wangqinghua

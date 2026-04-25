@@ -1,10 +1,13 @@
 package server
 
 import (
+<<<<<<< HEAD
 	"encoding/json"
 	stdhttp "net/http"
 
 	v1 "shared-device-saas/api/user/v1"
+=======
+>>>>>>> dev/wangqinghua
 	"shared-device-saas/app/user/internal/conf"
 	"shared-device-saas/app/user/internal/service"
 	"shared-device-saas/pkg/auth"
@@ -15,6 +18,7 @@ import (
 )
 
 // NewHTTPServer new an HTTP server.
+<<<<<<< HEAD
 // 增加 jwtMgr 和 blacklist 参数用于 JWT 认证
 func NewHTTPServer(
 	c *conf.Server,
@@ -37,6 +41,13 @@ func NewHTTPServer(
 			),
 			// 权限检查中间件（针对 GetUser 和 UpdateUser）
 			auth.PermissionMiddleware(),
+=======
+func NewHTTPServer(c *conf.Server, jwtCfg *auth.JWTConfig, svc *service.UserService, logger log.Logger) *http.Server {
+	var opts = []http.ServerOption{
+		http.Middleware(
+			recovery.Recovery(),
+			auth.JWTMiddleware(jwtCfg),
+>>>>>>> dev/wangqinghua
 		),
 		// 添加统一返回结构编码器
 		http.ResponseEncoder(responseEncoder),
@@ -51,7 +62,28 @@ func NewHTTPServer(
 		opts = append(opts, http.Timeout(c.Http.Timeout.AsDuration()))
 	}
 	srv := http.NewServer(opts...)
+<<<<<<< HEAD
 	v1.RegisterUserServiceHTTPServer(srv, user)
+=======
+
+	// 手动注册 HTTP 路由（proto 无 google.api.http 注解，待后续补充）
+	// TODO: 补充 proto HTTP 注解后替换为 pb.RegisterUserServiceHTTPServer(srv, svc)
+	srv.Route("/api/v1/user").POST("/login", svc.LoginHTTP)
+	srv.Route("/api/v1/user").POST("/refresh-token", svc.RefreshTokenHTTP)
+	srv.Route("/api/v1/user").POST("/logout", svc.LogoutHTTP)
+	srv.Route("/api/v1/user").GET("/profile", svc.GetUserHTTP)
+	srv.Route("/api/v1/user").PUT("/profile", svc.UpdateUserHTTP)
+	srv.Route("/api/v1/user").GET("/orders", svc.ListOrdersHTTP)
+	srv.Route("/api/v1/user").POST("/upload", svc.UploadImageHTTP)
+	srv.Route("/api/v1/user").POST("/upload/batch", svc.BatchUploadImagesHTTP)
+	srv.Route("/api/v1/user").POST("/upload/signed-url", svc.GetSignedURLHTTP)
+	srv.Route("/api/v1/user").GET("/wallet", svc.GetWalletHTTP)
+	srv.Route("/api/v1/user").GET("/wallet/transactions", svc.ListTransactionsHTTP)
+	srv.Route("/api/v1/user").POST("/recharge", svc.CreateRechargeHTTP)
+	srv.Route("/api/v1/user").POST("/recharge/callback", svc.RechargeCallbackHTTP)
+	srv.Route("/api/v1/user").GET("/recharges", svc.ListRechargesHTTP)
+
+>>>>>>> dev/wangqinghua
 	return srv
 }
 

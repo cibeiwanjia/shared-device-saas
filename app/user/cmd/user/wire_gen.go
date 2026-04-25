@@ -14,6 +14,15 @@ import (
 	"shared-device-saas/app/user/internal/data"
 	"shared-device-saas/app/user/internal/server"
 	"shared-device-saas/app/user/internal/service"
+<<<<<<< HEAD
+=======
+	"shared-device-saas/pkg/auth"
+	"shared-device-saas/pkg/payment"
+	"shared-device-saas/pkg/storage"
+
+	"github.com/go-kratos/kratos/v2"
+	"github.com/go-kratos/kratos/v2/log"
+>>>>>>> dev/wangqinghua
 )
 
 import (
@@ -22,7 +31,47 @@ import (
 
 // Injectors from wire.go:
 
+// newJWTConfig 从 conf.JWT 配置创建 auth.JWTConfig
+func newJWTConfig(c *conf.JWT) *auth.JWTConfig {
+	return &auth.JWTConfig{
+		Secret:        c.GetSecret(),
+		AccessExpire:  c.GetAccessExpire(),
+		RefreshExpire: c.GetRefreshExpire(),
+		Issuer:        c.GetIssuer(),
+	}
+}
+
+// newStorageProvider 从 conf.Storage 配置创建 StorageProvider
+func newStorageProvider(c *conf.Storage) (storage.StorageProvider, error) {
+	return storage.NewStorageProvider(&storage.StorageConfig{
+		Provider:           c.GetProvider(),
+		OSSEndpoint:        c.GetOssEndpoint(),
+		OSSAccessKeyID:     c.GetOssAccessKeyId(),
+		OSSAccessKeySecret: c.GetOssAccessKeySecret(),
+		OSSBucket:          c.GetBucket(),
+		MinioEndpoint:      c.GetMinioEndpoint(),
+		MinioAccessKey:     c.GetMinioAccessKey(),
+		MinioSecretKey:     c.GetMinioSecretKey(),
+		MinioBucket:        c.GetBucket(),
+		MinioUseSSL:        c.GetMinioUseSsl(),
+		RustfsEndpoint:     c.GetRustfsEndpoint(),
+		RustfsAccessKey:    c.GetRustfsAccessKey(),
+		RustfsSecretKey:    c.GetRustfsSecretKey(),
+		RustfsBucket:       c.GetBucket(),
+		RustfsUseSSL:       c.GetRustfsUseSsl(),
+	})
+}
+
+// newPaymentChannels 创建支付渠道集合
+func newPaymentChannels() map[int32]payment.PaymentChannel {
+	return map[int32]payment.PaymentChannel{
+		1: payment.NewWechatPayChannel(),
+		2: payment.NewAlipayChannel(),
+	}
+}
+
 // wireApp init kratos application.
+<<<<<<< HEAD
 func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
 	dataData, cleanup, err := data.NewData(confData, logger)
 	if err != nil {
@@ -41,6 +90,41 @@ func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*
 	grpcServer := server.NewGRPCServer(confServer, userService, logger)
 	blacklist := data.NewRedisBlacklist(client, logger)
 	httpServer := server.NewHTTPServer(confServer, userService, jwtManager, blacklist, logger)
+=======
+func wireApp(confServer *conf.Server, confData *conf.Data, confJWT *conf.JWT, confStorage *conf.Storage, logger log.Logger) (*kratos.App, func(), error) {
+	// 基础设施
+	jwtCfg := newJWTConfig(confJWT)
+	storageProvider, err := newStorageProvider(confStorage)
+	if err != nil {
+		return nil, nil, err
+	}
+	paymentChannels := newPaymentChannels()
+
+	// Data 层
+	dataData, cleanup, err := data.NewData(confData)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Repo
+	orderRepo := data.NewOrderRepo(dataData, logger)
+	walletRepo := data.NewWalletRepo(dataData, logger)
+	rechargeRepo := data.NewRechargeRepo(dataData, logger)
+
+	// Usecase
+	_ = biz.NewJwtUsecase(jwtCfg, logger) // JWT usecase 暂不注入 service，保留供认证接口使用
+	orderUsecase := biz.NewOrderUsecase(orderRepo, logger)
+	uploadUsecase := biz.NewUploadUsecase(storageProvider, confStorage.GetBucket(), logger)
+	walletUsecase := biz.NewWalletUsecase(walletRepo, logger)
+	rechargeUsecase := biz.NewRechargeUsecase(rechargeRepo, *walletUsecase, paymentChannels, logger)
+
+	// Service
+	userService := service.NewUserService(orderUsecase, uploadUsecase, walletUsecase, rechargeUsecase, logger)
+
+	// Server
+	grpcServer := server.NewGRPCServer(confServer, jwtCfg, userService, logger)
+	httpServer := server.NewHTTPServer(confServer, jwtCfg, userService, logger)
+>>>>>>> dev/wangqinghua
 	app := newApp(logger, grpcServer, httpServer)
 	return app, func() {
 		cleanup2()

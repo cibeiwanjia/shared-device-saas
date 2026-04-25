@@ -3,18 +3,28 @@ server:
     addr: 0.0.0.0:8001
     timeout: 1s
   grpc:
+<<<<<<< HEAD
     addr: 0.0.0.0:9001
+=======
+    addr: 0.0.0.0:9100
+>>>>>>> dev/wangqinghua
     timeout: 1s
+
 data:
   database:
     driver: mysql
+<<<<<<< HEAD
     source: root:4ay1nkal3u8ed77y@tcp(115.190.17.186:3306)/2307a-mall?parseTime=True&loc=Local
+=======
+    source: root:root@tcp(127.0.0.1:3306)/shared_device_user?parseTime=True&loc=Local
+>>>>>>> dev/wangqinghua
   redis:
     addr: 115.190.17.186:6379
     password: 4ay1nkal3u8ed77y
     db: 0
     read_timeout: 0.2s
     write_timeout: 0.2s
+<<<<<<< HEAD
   mongodb:
     uri: mongodb://root:123456@115.190.17.186:27017/admin
     database: test
@@ -29,3 +39,35 @@ data:
     account: "C22367422"
     password: "41dcf87e3f958594f1a14a9c458c88fc"
     template_id: "1"
+=======
+  mongo:
+    uri: "mongodb://127.0.0.1:27017"
+    database: "shared_device_user"
+    username: ""
+    password: ""
+    auth_source: "admin"
+    max_pool_size: 100
+    min_pool_size: 5
+    connect_timeout: 5s
+
+jwt:
+  secret: "change-me-in-production"
+  access_expire: 7200
+  refresh_expire: 604800
+  issuer: "shared-device-saas"
+
+storage:
+  provider: minio
+  bucket: "shared-device"
+  oss_endpoint: ""
+  oss_access_key_id: ""
+  oss_access_key_secret: ""
+  minio_endpoint: "127.0.0.1:9000"
+  minio_access_key: "minioadmin"
+  minio_secret_key: "minioadmin"
+  minio_use_ssl: false
+  rustfs_endpoint: "127.0.0.1:9002"
+  rustfs_access_key: "rustfsadmin"
+  rustfs_secret_key: "rustfsadmin"
+  rustfs_use_ssl: false
+>>>>>>> dev/wangqinghua
