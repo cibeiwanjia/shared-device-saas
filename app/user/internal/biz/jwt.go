@@ -8,23 +8,28 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 )
 
-// JwtUsecase JWT 业务逻辑
+// JwtUsecase JWT 业务逻辑（委托给 auth.JWTManager）
 type JwtUsecase struct {
-	jwtCfg *auth.JWTConfig
+	jwtMgr *auth.JWTManager
 	log    *log.Helper
 }
 
 // NewJwtUsecase 创建 JwtUsecase
-func NewJwtUsecase(jwtCfg *auth.JWTConfig, logger log.Logger) *JwtUsecase {
-	return &JwtUsecase{jwtCfg: jwtCfg, log: log.NewHelper(logger)}
+func NewJwtUsecase(jwtMgr *auth.JWTManager, logger log.Logger) *JwtUsecase {
+	return &JwtUsecase{jwtMgr: jwtMgr, log: log.NewHelper(logger)}
 }
 
-// GenerateToken 签发 Access Token
-func (uc *JwtUsecase) GenerateToken(ctx context.Context, userID, tenantID int64, deviceID string) (string, error) {
-	return auth.GenerateToken(uc.jwtCfg, userID, tenantID, deviceID)
+// GenerateTokenPair 签发 Token 对
+func (uc *JwtUsecase) GenerateTokenPair(ctx context.Context, userID string, tenantID int64, sessionID, deviceID string, roles []string) (*auth.TokenPair, error) {
+	return uc.jwtMgr.GenerateTokenPair(userID, tenantID, sessionID, deviceID, roles)
 }
 
-// ParseToken 解析 Token
-func (uc *JwtUsecase) ParseToken(ctx context.Context, tokenStr string) (*auth.Claims, error) {
-	return auth.ParseToken(uc.jwtCfg, tokenStr)
+// ParseAccessToken 解析 Access Token
+func (uc *JwtUsecase) ParseAccessToken(ctx context.Context, tokenStr string) (*auth.Claims, error) {
+	return uc.jwtMgr.ParseAccessToken(tokenStr)
+}
+
+// ParseRefreshToken 解析 Refresh Token
+func (uc *JwtUsecase) ParseRefreshToken(ctx context.Context, tokenStr string) (*auth.Claims, error) {
+	return uc.jwtMgr.ParseRefreshToken(tokenStr)
 }

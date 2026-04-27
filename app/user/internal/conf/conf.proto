@@ -8,8 +8,7 @@ import "google/protobuf/duration.proto";
 message Bootstrap {
   Server server = 1;
   Data data = 2;
-  JWT jwt = 3;
-  Storage storage = 4;
+  Storage storage = 3;
 }
 
 message Server {
@@ -40,15 +39,21 @@ message Data {
     google.protobuf.Duration write_timeout = 5;
   }
   message MongoDB {
-    string uri = 1;        // MongoDB 连接 URI
-    string database = 2;   // 数据库名
-    string collection = 3; // 集合名
+    string uri = 1;                                // MongoDB 连接 URI
+    string database = 2;                           // 数据库名
+    string collection = 3;                         // 集合名（默认集合）
+    string username = 4;                           // 认证用户名
+    string password = 5;                           // 认证密码
+    string auth_source = 6;                        // 认证数据库
+    int32 max_pool_size = 7;                       // 最大连接池
+    int32 min_pool_size = 8;                       // 最小连接池
+    google.protobuf.Duration connect_timeout = 9;  // 连接超时
   }
   message JWT {
-    string access_secret = 1;    // Access Token 密钥
-    string refresh_secret = 2;   // Refresh Token 密钥
-    google.protobuf.Duration access_expiry = 3;  // Access Token 有效期
-    google.protobuf.Duration refresh_expiry = 4; // Refresh Token 有效期
+    string access_secret = 1;                          // Access Token 密钥
+    string refresh_secret = 2;                         // Refresh Token 密钥
+    google.protobuf.Duration access_expiry = 3;        // Access Token 有效期
+    google.protobuf.Duration refresh_expiry = 4;       // Refresh Token 有效期
   }
   message SMS {
     string api_url = 1;      // 短信 API 地址
@@ -56,32 +61,16 @@ message Data {
     string password = 3;     // APIKEY
     string template_id = 4;  // 短信模板ID
   }
-  message Mongo {
-    string uri = 1;
-    string database = 2;
-    string username = 3;
-    string password = 4;
-    string auth_source = 5;
-    int32 max_pool_size = 6;
-    int32 min_pool_size = 7;
-    google.protobuf.Duration connect_timeout = 8;
+  message Amap {
+    string api_key = 1;      // 高德 Web API Key
+    string base_url = 2;     // 高德 API 基础地址（可选，默认 https://restapi.amap.com）
   }
   Database database = 1;
   Redis redis = 2;
-<<<<<<< HEAD
   MongoDB mongodb = 3;
   JWT jwt = 4;
   SMS sms = 5;
-}
-=======
-  Mongo mongo = 3;
-}
-
-message JWT {
-  string secret = 1;
-  int64 access_expire = 2;
-  int64 refresh_expire = 3;
-  string issuer = 4;
+  Amap amap = 6;
 }
 
 message Storage {
@@ -102,4 +91,3 @@ message Storage {
   string rustfs_secret_key = 12;
   bool rustfs_use_ssl = 13;
 }
->>>>>>> dev/wangqinghua

@@ -1,7 +1,10 @@
 package server
 
 import (
-	v1 "shared-device-saas/api/helloworld/v1"
+	"encoding/json"
+	stdhttp "net/http"
+
+	pb "shared-device-saas/api/device/v1"
 	"shared-device-saas/app/device/internal/conf"
 	"shared-device-saas/app/device/internal/service"
 
@@ -10,12 +13,12 @@ import (
 	"github.com/go-kratos/kratos/v2/transport/http"
 )
 
-// NewHTTPServer new an HTTP server.
-func NewHTTPServer(c *conf.Server, greeter *service.GreeterService, logger log.Logger) *http.Server {
+func NewHTTPServer(c *conf.Server, deviceSvc *service.DeviceService, logger log.Logger) *http.Server {
 	var opts = []http.ServerOption{
 		http.Middleware(
 			recovery.Recovery(),
 		),
+		http.ResponseEncoder(responseEncoder),
 	}
 	if c.Http.Network != "" {
 		opts = append(opts, http.Network(c.Http.Network))
@@ -27,6 +30,23 @@ func NewHTTPServer(c *conf.Server, greeter *service.GreeterService, logger log.L
 		opts = append(opts, http.Timeout(c.Http.Timeout.AsDuration()))
 	}
 	srv := http.NewServer(opts...)
-	v1.RegisterGreeterHTTPServer(srv, greeter)
+	pb.RegisterDeviceServiceHTTPServer(srv, deviceSvc)
 	return srv
+}
+
+type standardResponse struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
+}
+
+func responseEncoder(w stdhttp.ResponseWriter, r *stdhttp.Request, v interface{}) error {
+	resp := standardResponse{Code: 200, Message: "操作成功", Data: v}
+	w.Header().Set("Content-Type", "application/json")
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	w.Write(data)
+	return nil
 }

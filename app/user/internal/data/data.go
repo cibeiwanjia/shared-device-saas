@@ -2,114 +2,114 @@ package data
 
 import (
 	"context"
-<<<<<<< HEAD
-=======
+	"database/sql"
 	"fmt"
->>>>>>> dev/wangqinghua
 	"time"
 
 	"shared-device-saas/app/user/internal/conf"
+	"shared-device-saas/pkg/amap"
 	"shared-device-saas/pkg/auth"
 	"shared-device-saas/pkg/redis"
 	"shared-device-saas/pkg/sms"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
-<<<<<<< HEAD
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // ProviderSet is data providers.
-var ProviderSet = wire.NewSet(NewData, NewUserRepo, NewRedisClient, NewSMSClient, NewRedisBlacklist)
+var ProviderSet = wire.NewSet(
+	NewData,
+	NewUserRepo,
+	NewOrderRepo,
+	NewWalletRepo,
+	NewRechargeRepo,
+	NewInventoryRepo,
+	NewRedisClient,
+	NewSMSClient,
+	NewRedisBlacklist,
+	NewStationRepo,
+	NewAmapClient,
+)
 
-// Data .
+// Data 数据层
 type Data struct {
 	mongoClient   *mongo.Client
 	mongoDatabase *mongo.Database
+	sqlDB         *sql.DB
 	redisClient   *redis.Client
 }
 
-// NewData .
+// NewData 初始化数据层
 func NewData(c *conf.Data, logger log.Logger) (*Data, func(), error) {
 	helper := log.NewHelper(logger)
 	helper.Info("Initializing data layer...")
 
-	// MongoDB 连接
-	mongoCfg := c.GetMongodb()
 	var mongoClient *mongo.Client
 	var mongoDatabase *mongo.Database
 
+	// MongoDB 连接
+	mongoCfg := c.GetMongodb()
 	if mongoCfg != nil {
 		helper.Info("Connecting to MongoDB...")
 		clientOptions := options.Client().ApplyURI(mongoCfg.Uri)
-		client, err := mongo.Connect(context.Background(), clientOptions)
-		if err != nil {
-			helper.Errorf("Failed to connect MongoDB: %v", err)
-			return nil, nil, err
-=======
-	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
-)
 
-// ProviderSet is data providers.
-var ProviderSet = wire.NewSet(
-	NewData,
-	NewOrderRepo,
-	NewWalletRepo,
-	NewRechargeRepo,
-)
-
-// Data .
-type Data struct {
-	mdb *mongo.Database
-}
-
-// NewData .
-func NewData(c *conf.Data) (*Data, func(), error) {
-	var cleanup func() = func() {}
-
-	// 初始化 MongoDB
-	if c.Mongo != nil {
-		clientOpts := options.Client().ApplyURI(c.Mongo.GetUri())
-
-		if c.Mongo.GetUsername() != "" {
-			clientOpts.SetAuth(options.Credential{
-				Username:   c.Mongo.GetUsername(),
-				Password:   c.Mongo.GetPassword(),
-				AuthSource: c.Mongo.GetAuthSource(),
+		// 支持认证配置
+		if mongoCfg.Username != "" {
+			clientOptions.SetAuth(options.Credential{
+				Username:   mongoCfg.Username,
+				Password:   mongoCfg.Password,
+				AuthSource: mongoCfg.AuthSource,
 			})
-		}
-
-		if c.Mongo.GetMaxPoolSize() > 0 {
-			clientOpts.SetMaxPoolSize(uint64(c.Mongo.GetMaxPoolSize()))
-		}
-		if c.Mongo.GetMinPoolSize() > 0 {
-			clientOpts.SetMinPoolSize(uint64(c.Mongo.GetMinPoolSize()))
-		}
-		if c.Mongo.GetConnectTimeout() != nil {
-			clientOpts.SetConnectTimeout(c.Mongo.GetConnectTimeout().AsDuration())
->>>>>>> dev/wangqinghua
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-<<<<<<< HEAD
-		if err = client.Ping(ctx, nil); err != nil {
-			helper.Errorf("Failed to ping MongoDB: %v", err)
-			return nil, nil, err
+
+		client, err := mongo.Connect(ctx, clientOptions)
+		if err != nil {
+			helper.Errorf("Failed to connect MongoDB: %v", err)
+			return nil, nil, fmt.Errorf("mongodb connect: %w", err)
 		}
+
+		if err := client.Ping(ctx, nil); err != nil {
+			helper.Errorf("Failed to ping MongoDB: %v", err)
+			return nil, nil, fmt.Errorf("mongodb ping: %w", err)
+		}
+
+		mongoDatabase = client.Database(mongoCfg.Database)
+
+		// 创建索引
+		ensureIndexes(ctx, mongoDatabase, helper)
 
 		helper.Infof("MongoDB connected: database=%s", mongoCfg.Database)
 		mongoClient = client
-		mongoDatabase = client.Database(mongoCfg.Database)
 	} else {
 		helper.Warn("MongoDB config not found")
 	}
 
-	// Redis 连接（延迟初始化，不在 NewData 中）
-	// Redis 在 NewRedisClient 中单独初始化
+	// MySQL 连接
+	var sqlDB *sql.DB
+	dbCfg := c.GetDatabase()
+	if dbCfg != nil && dbCfg.Driver != "" && dbCfg.Source != "" {
+		helper.Info("Connecting to MySQL...")
+		db, err := sql.Open(dbCfg.Driver, dbCfg.Source)
+		if err != nil {
+			helper.Errorf("Failed to open MySQL: %v", err)
+			return nil, nil, fmt.Errorf("mysql open: %w", err)
+		}
+		if err := db.PingContext(context.Background()); err != nil {
+			helper.Errorf("Failed to ping MySQL: %v", err)
+			return nil, nil, fmt.Errorf("mysql ping: %w", err)
+		}
+		sqlDB = db
+		helper.Infof("MySQL connected: driver=%s", dbCfg.Driver)
+	} else {
+		helper.Warn("MySQL config not found")
+	}
 
 	cleanup := func() {
 		helper.Info("Closing data layer connections...")
@@ -118,11 +118,17 @@ func NewData(c *conf.Data) (*Data, func(), error) {
 				helper.Errorf("Failed to disconnect MongoDB: %v", err)
 			}
 		}
+		if sqlDB != nil {
+			if err := sqlDB.Close(); err != nil {
+				helper.Errorf("Failed to close MySQL: %v", err)
+			}
+		}
 	}
 
 	return &Data{
 		mongoClient:   mongoClient,
 		mongoDatabase: mongoDatabase,
+		sqlDB:         sqlDB,
 	}, cleanup, nil
 }
 
@@ -188,6 +194,31 @@ func NewSMSClient(c *conf.Data, logger log.Logger) *sms.IhuyiClient {
 	)
 }
 
+// NewAmapClient 创建高德地图客户端
+func NewAmapClient(c *conf.Data, logger log.Logger) *amap.Client {
+	helper := log.NewHelper(logger)
+
+	amapCfg := c.GetAmap()
+	if amapCfg == nil || amapCfg.ApiKey == "" {
+		helper.Warn("Amap config not found or api_key empty")
+		return nil
+	}
+
+	helper.Info("Amap client initialized")
+	return amap.NewClient(amapCfg.ApiKey, logger)
+}
+
+// NewRedisBlacklist 创建 Redis Token 黑名单
+func NewRedisBlacklist(redisClient *redis.Client, logger log.Logger) auth.Blacklist {
+	helper := log.NewHelper(logger)
+	if redisClient == nil {
+		helper.Warn("Redis client not available, blacklist will not work")
+		return nil
+	}
+	helper.Info("Redis blacklist initialized")
+	return auth.NewRedisBlacklistAdapter(redisClient)
+}
+
 // GetCollection 获取 MongoDB 集合
 func (d *Data) GetCollection(name string) *mongo.Collection {
 	if d.mongoDatabase == nil {
@@ -201,81 +232,76 @@ func (d *Data) GetRedisClient() *redis.Client {
 	return d.redisClient
 }
 
+// GetSqlDB 获取 MySQL 连接
+func (d *Data) GetSqlDB() *sql.DB {
+	return d.sqlDB
+}
+
 // SetRedisClient 设置 Redis 客户端（用于 wire 注入）
 func (d *Data) SetRedisClient(client *redis.Client) {
 	d.redisClient = client
 }
 
-// NewRedisBlacklist 创建 Redis Token 黑名单
-func NewRedisBlacklist(redisClient *redis.Client, logger log.Logger) auth.Blacklist {
-	helper := log.NewHelper(logger)
-	if redisClient == nil {
-		helper.Warn("Redis client not available, blacklist will not work")
-		return nil
-	}
-	helper.Info("Redis blacklist initialized")
-	return auth.NewRedisBlacklistAdapter(redisClient)
-}
-=======
-
-		client, err := mongo.Connect(clientOpts)
-		if err != nil {
-			return nil, nil, fmt.Errorf("mongodb connect: %w", err)
-		}
-
-		if err := client.Ping(ctx, nil); err != nil {
-			return nil, nil, fmt.Errorf("mongodb ping: %w", err)
-		}
-
-		db := client.Database(c.Mongo.GetDatabase())
-
-		ensureIndexes(ctx, db)
-
-		cleanup = func() {
-			log.Info("closing the data resources")
-			_ = client.Disconnect(context.Background())
-		}
-
-		log.Infof("mongodb connected: %s/%s", c.Mongo.GetUri(), c.Mongo.GetDatabase())
-		return &Data{mdb: db}, cleanup, nil
-	}
-
-	// MongoDB 未配置时返回空 Data（桩模式）
-	return &Data{}, cleanup, nil
-}
-
-// MongoCollection 获取 MongoDB 集合
-func (d *Data) MongoCollection(name string) *mongo.Collection {
-	if d.mdb == nil {
-		return nil
-	}
-	return d.mdb.Collection(name)
-}
+// ========================================
+// MongoDB 索引管理（dev 分支）
+// ========================================
 
 type indexSpec struct {
-	collection string
-	keys       bson.D
-	unique     bool
+	collection    string
+	keys          bson.D
+	unique        bool
+	sparse        bool
+	ttlSeconds    int32 // 0 表示无 TTL
 }
 
-func ensureIndexes(ctx context.Context, db *mongo.Database) {
+func ensureIndexes(ctx context.Context, db *mongo.Database, helper *log.Helper) {
 	indexes := []indexSpec{
-		{collection: "orders", keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}}},
-		{collection: "orders", keys: bson.D{{Key: "order_no", Value: 1}}, unique: true},
+		// ===== users =====
+		{collection: "users", keys: bson.D{{Key: "phone", Value: 1}}, unique: true},
+		{collection: "users", keys: bson.D{{Key: "username", Value: 1}}, unique: true},
+
+		// ===== orders 已迁移到 MySQL，不再使用 MongoDB =====
+
+		// ===== wallet_transactions =====
 		{collection: "wallet_transactions", keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}}},
+
+		// ===== recharge_orders =====
 		{collection: "recharge_orders", keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}}},
 		{collection: "recharge_orders", keys: bson.D{{Key: "order_no", Value: 1}}, unique: true},
+
+		// ===== jwt_sessions =====
 		{collection: "jwt_sessions", keys: bson.D{{Key: "user_id", Value: 1}, {Key: "device_id", Value: 1}}},
 		{collection: "jwt_sessions", keys: bson.D{{Key: "token_hash", Value: 1}}, unique: true},
+		{collection: "jwt_sessions", keys: bson.D{{Key: "expires_at", Value: 1}}, ttlSeconds: 0}, // TTL 索引
+
+		// ===== upload_files =====
 		{collection: "upload_files", keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}}},
+		{collection: "upload_files", keys: bson.D{{Key: "file_key", Value: 1}}, unique: true},
+
+		// ===== operation_logs =====
+		{collection: "operation_logs", keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}}},
+		{collection: "operation_logs", keys: bson.D{{Key: "created_at", Value: 1}}, ttlSeconds: 90 * 86400}, // 90 天 TTL
+
+		// ===== sms_codes =====
+		{collection: "sms_codes", keys: bson.D{{Key: "phone", Value: 1}}},
+		{collection: "sms_codes", keys: bson.D{{Key: "expires_at", Value: 1}}, ttlSeconds: 0},
 	}
 
 	for _, idx := range indexes {
-		opt := options.Index().SetUnique(idx.unique)
+		opt := options.Index()
+		if idx.unique {
+			opt.SetUnique(true)
+		}
+		if idx.sparse {
+			opt.SetSparse(true)
+		}
+		if idx.ttlSeconds > 0 {
+			opt.SetExpireAfterSeconds(idx.ttlSeconds)
+		}
+
 		_, err := db.Collection(idx.collection).Indexes().CreateOne(ctx, mongo.IndexModel{Keys: idx.keys, Options: opt})
 		if err != nil {
-			log.Warnf("ensure index %s.%v: %v", idx.collection, idx.keys, err)
+			helper.Warnf("ensure index %s.%v: %v", idx.collection, idx.keys, err)
 		}
 	}
 }
->>>>>>> dev/wangqinghua

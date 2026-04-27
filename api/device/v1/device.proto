@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package api.device.v1;
+
+option go_package = "shared-device-saas/api/device/v1;v1";
+
+import "google/api/annotations.proto";
+
+service DeviceService {
+  rpc RegisterDevice (RegisterDeviceRequest) returns (RegisterDeviceReply) {
+    option (google.api.http) = {
+      post: "/v1/device/register"
+      body: "*"
+    };
+  }
+
+  rpc GetDevice (GetDeviceRequest) returns (GetDeviceReply) {
+    option (google.api.http) = {
+      get: "/v1/device/{id}"
+    };
+  }
+
+  rpc ListDevices (ListDevicesRequest) returns (ListDevicesReply) {
+    option (google.api.http) = {
+      get: "/v1/devices"
+    };
+  }
+
+  rpc GetDeviceStatus (GetDeviceStatusRequest) returns (GetDeviceStatusReply) {
+    option (google.api.http) = {
+      get: "/v1/device/{id}/status"
+    };
+  }
+
+  rpc ListConnectionEvents (ListConnectionEventsRequest) returns (ListConnectionEventsReply) {
+    option (google.api.http) = {
+      get: "/v1/device/{device_id}/events"
+    };
+  }
+
+  rpc GenerateDeviceToken (GenerateDeviceTokenRequest) returns (GenerateDeviceTokenReply) {
+    option (google.api.http) = {
+      post: "/v1/device/token"
+      body: "*"
+    };
+  }
+}
+
+message RegisterDeviceRequest {
+  int64 tenant_id = 1;
+  string device_type = 2;
+  string device_sn = 3;
+  string name = 4;
+  double location_lat = 5;
+  double location_lng = 6;
+  string location_name = 7;
+  int64 station_id = 8;
+}
+
+message RegisterDeviceReply {
+  int64 id = 1;
+  string device_sn = 2;
+}
+
+message GetDeviceRequest {
+  int64 id = 1;
+}
+
+message GetDeviceReply {
+  int64 id = 1;
+  int64 tenant_id = 2;
+  string device_type = 3;
+  string device_sn = 4;
+  string name = 5;
+  int32 status = 6;
+  double location_lat = 7;
+  double location_lng = 8;
+  string location_name = 9;
+  int64 station_id = 10;
+  uint32 battery_level = 11;
+  string last_online_at = 12;
+  string last_offline_at = 13;
+}
+
+message ListDevicesRequest {
+  int64 tenant_id = 1;
+  string device_type = 2;
+  int32 status = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListDevicesReply {
+  repeated GetDeviceReply items = 1;
+  int32 total = 2;
+}
+
+message GetDeviceStatusRequest {
+  int64 id = 1;
+}
+
+message GetDeviceStatusReply {
+  int64 id = 1;
+  int32 status = 2;
+  uint32 battery_level = 3;
+  bool online = 4;
+  string last_online_at = 5;
+  string last_offline_at = 6;
+}
+
+message ListConnectionEventsRequest {
+  int64 device_id = 1;
+  string event_type = 2;
+  string start_time = 3;
+  string end_time = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ConnectionEventItem {
+  int64 id = 1;
+  string event_type = 2;
+  int32 reason_code = 3;
+  string ip_address = 4;
+  string client_id = 5;
+  string occurred_at = 6;
+}
+
+message ListConnectionEventsReply {
+  repeated ConnectionEventItem items = 1;
+  int32 total = 2;
+}
+
+message GenerateDeviceTokenRequest {
+  string device_id = 1;
+  int64 tenant_id = 2;
+  string device_type = 3;
+}
+
+message GenerateDeviceTokenReply {
+  string token = 1;
+  int64 expires_in = 2;
+}

@@ -1,30 +1,13 @@
 package errx
 
-<<<<<<< HEAD
 import (
 	"github.com/go-kratos/kratos/v2/errors"
 )
 
-// 统一错误码
-var (
-	Unauthorized = func(reason string) *errors.Error {
-		return errors.Unauthorized("UNAUTHORIZED", reason)
-	}
-	Forbidden = func(reason string) *errors.Error {
-		return errors.Forbidden("FORBIDDEN", reason)
-	}
-	BadRequest = func(reason string) *errors.Error {
-		return errors.BadRequest("BAD_REQUEST", reason)
-	}
-	NotFound = func(reason string) *errors.Error {
-		return errors.NotFound("NOT_FOUND", reason)
-	}
-	Internal = func(reason string) *errors.Error {
-		return errors.InternalServer("INTERNAL_ERROR", reason)
-	}
-)
-=======
-// 业务错误码
+// ========================================
+// 结构化业务错误码（dev 分支）
+// ========================================
+
 const (
 	// 通用
 	CodeSuccess      = 0
@@ -92,4 +75,28 @@ func GetMessage(code int32) string {
 	}
 	return "未知错误"
 }
->>>>>>> dev/wangqinghua
+
+// ========================================
+// 便捷错误构造函数（HEAD 分支）
+// ========================================
+
+var (
+	Unauthorized = func(reason string) *errors.Error {
+		return errors.Unauthorized("UNAUTHORIZED", reason)
+	}
+	Forbidden = func(reason string) *errors.Error {
+		return errors.Forbidden("FORBIDDEN", reason)
+	}
+	BadRequest = func(reason string) *errors.Error {
+		return errors.BadRequest("BAD_REQUEST", reason)
+	}
+	NotFound = func(reason string) *errors.Error {
+		return errors.NotFound("NOT_FOUND", reason)
+	}
+	Internal = func(reason string) *errors.Error {
+		return errors.InternalServer("INTERNAL_ERROR", reason)
+	}
+	Conflict = func(reason string) *errors.Error {
+		return errors.Conflict("CONFLICT", reason)
+	}
+)

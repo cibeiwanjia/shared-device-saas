@@ -77,6 +77,70 @@ service UserService {
       body: "*"
     };
   }
+
+  // ===== 订单相关 =====
+
+  // 创建订单
+  rpc CreateOrder (CreateOrderRequest) returns (CreateOrderReply) {
+    option (google.api.http) = {
+      post: "/v1/order"
+      body: "*"
+    };
+  }
+
+  // 查询单个订单
+  rpc GetOrder (GetOrderRequest) returns (GetOrderReply) {
+    option (google.api.http) = {
+      get: "/v1/order/{order_no}"
+    };
+  }
+
+  // 多维筛选+游标分页查询订单列表
+  rpc ListOrders (ListOrdersRequest) returns (ListOrdersReply) {
+    option (google.api.http) = {
+      get: "/v1/orders"
+    };
+  }
+
+  // 取消订单
+  rpc CancelOrder (CancelOrderRequest) returns (CancelOrderReply) {
+    option (google.api.http) = {
+      post: "/v1/order/{order_no}/cancel"
+      body: "*"
+    };
+  }
+
+  // 发起支付
+  rpc PayOrder (PayOrderRequest) returns (PayOrderReply) {
+    option (google.api.http) = {
+      post: "/v1/order/{order_no}/pay"
+      body: "*"
+    };
+  }
+
+  // 支付回调入口
+  rpc HandleCallback (CallbackRequest) returns (CallbackReply) {
+    option (google.api.http) = {
+      post: "/v1/order/callback/{channel}"
+      body: "*"
+    };
+  }
+
+  // ===== 站点相关 =====
+
+  // 搜索附近站点（调用高德 + 本地 DB）
+  rpc SearchNearbyStations (SearchNearbyStationsRequest) returns (SearchNearbyStationsReply) {
+    option (google.api.http) = {
+      get: "/v1/stations/nearby"
+    };
+  }
+
+  // 获取站点详情（含柜格信息）
+  rpc GetStation (GetStationRequest) returns (GetStationReply) {
+    option (google.api.http) = {
+      get: "/v1/station/{station_id}"
+    };
+  }
 }
 
 // 1. 账号密码登录
@@ -188,6 +252,159 @@ message UpdateUserReply {
   string id = 1;          // 用户ID（唯一标识，数据库里的主键）
   string nickname = 2;    // 昵称（页面显示的名字）
   string avatar = 3;      // 头像URL（前端显示头像）
+}
+
+// ===== 订单消息定义 =====
+
+// 订单全字段
+message OrderInfo {
+  string id = 1;           // 订单ID
+  int64 tenant_id = 2;     // 租户ID
+  string user_id = 3;      // 用户ID
+  string order_no = 4;     // 订单号
+  int32 source = 5;        // 来源 1=门票 2=共享单车 3=充电宝 4=智能快递柜
+  string order_type = 6;   // 订单类型
+  int32 status = 7;        // 状态 1=待支付 2=已支付 3=已完成 4=已取消 5=已退款
+  int32 total_amount = 8;   // 金额（分）
+  string currency = 9;     // 币种
+  int32 payment_method = 10; // 支付方式 0=未支付 1=微信 2=支付宝 3=钱包余额
+  string title = 11;       // 订单标题
+  string description = 12; // 订单描述
+  string extra_json = 13;  // 扩展字段（JSON）
+  int64 paid_at = 14;      // 支付时间（时间戳）
+  int64 created_at = 15;   // 创建时间（时间戳）
+  int64 updated_at = 16;   // 更新时间（时间戳）
+}
+
+// 创建订单
+message CreateOrderRequest {
+  int32 source = 1;          // 来源
+  string order_type = 2;     // 订单类型
+  int32 total_amount = 3;     // 金额（分）
+  string currency = 4;       // 币种
+  string title = 5;          // 订单标题
+  string description = 6;    // 订单描述
+  string extra_json = 7;     // 扩展字段（JSON）
+}
+
+message CreateOrderReply {
+  OrderInfo order = 1;
+}
+
+// 查询单个订单
+message GetOrderRequest {
+  string order_no = 1;  // 订单号（路径参数）
+}
+
+message GetOrderReply {
+  OrderInfo order = 1;
+}
+
+// 订单列表查询
+message ListOrdersRequest {
+  string created_after = 1;   // 创建时间起始
+  string created_before = 2;  // 创建时间截止
+  int32 source = 3;           // 来源筛选
+  int32 status = 4;           // 状态筛选
+  int32 min_amount = 5;       // 最小金额
+  int32 max_amount = 6;       // 最大金额
+  int32 payment_method = 7;   // 支付方式筛选
+  int32 limit = 8;            // 每页数量
+  string cursor = 9;          // 游标
+  string sort_field = 10;     // 排序字段
+  string sort_direction = 11; // 排序方向 asc/desc
+}
+
+message ListOrdersReply {
+  repeated OrderInfo orders = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+  int32 total_count = 4;
+}
+
+// 取消订单
+message CancelOrderRequest {
+  string order_no = 1;  // 订单号（路径参数）
+  string reason = 2;    // 取消原因
+}
+
+message CancelOrderReply {
+  OrderInfo order = 1;
+}
+
+// 发起支付
+message PayOrderRequest {
+  string order_no = 1;       // 订单号（路径参数）
+  int32 payment_method = 2;  // 支付方式 1=微信 2=支付宝 3=钱包余额
+}
+
+message PayOrderReply {
+  string order_no = 1;     // 订单号
+  string pay_params = 2;   // 支付参数（JSON，前端拉起支付）
+}
+
+// 支付回调
+message CallbackRequest {
+  string channel = 1;     // 支付渠道（路径参数）
+  string body = 2;        // 回调原始数据
+}
+
+message CallbackReply {
+  bool success = 1;
+  string message = 2;
+}
+
+// ===== 站点消息定义 =====
+
+// 柜格信息
+message GridInfo {
+  int64 id = 1;              // 柜格ID
+  int64 station_id = 2;      // 站点ID
+  string grid_no = 3;        // 柜格编号（如 A-01）
+  string grid_type = 4;      // 柜格类型: small/medium/large
+  int32 status = 5;          // 状态: 1=空闲 2=占用 3=预留 4=故障
+  int32 price_per_hour = 6;  // 每小时价格（分）
+}
+
+// 站点信息
+message StationInfo {
+  int64 id = 1;              // 站点ID
+  string name = 2;           // 站点名称
+  string address = 3;        // 详细地址
+  double lat = 4;            // 纬度
+  double lng = 5;            // 经度
+  string province = 6;       // 省
+  string city = 7;           // 市
+  string district = 8;       // 区
+  int32 status = 9;          // 状态
+  int32 distance = 10;       // 距离（米，仅搜索时有值）
+  int32 available_grids = 11; // 空闲柜格数
+  int32 total_grids = 12;    // 总柜格数
+  int32 min_price = 13;      // 最低价格（分/小时）
+  repeated GridInfo grids = 14; // 柜格列表（仅详情接口返回）
+}
+
+// 搜索附近站点
+message SearchNearbyStationsRequest {
+  string lng = 1;            // 经度
+  string lat = 2;            // 纬度
+  int32 radius = 3;          // 搜索半径（米），默认3000
+  string keywords = 4;       // 搜索关键词（可选，如"快递柜"）
+  int32 limit = 5;           // 返回数量，默认20，最大50
+}
+
+message SearchNearbyStationsReply {
+  repeated StationInfo stations = 1;
+  int32 total_count = 2;
+}
+
+// 获取站点详情
+message GetStationRequest {
+  int64 station_id = 1;  // 站点ID（路径参数）
+}
+
+message GetStationReply {
+  StationInfo station = 1;
 }
 
 // 错误原因枚举

@@ -8,8 +8,32 @@ server:
 data:
   database:
     driver: mysql
-    source: root:root@tcp(127.0.0.1:3306)/test?parseTime=True&loc=Local
+    source: root:4ay1nkal3u8ed77y@tcp(115.190.17.186:3306)/shared_device_user?parseTime=True&loc=Local
   redis:
-    addr: 127.0.0.1:6379
+    addr: 115.190.17.186:6379
+    password: "4ay1nkal3u8ed77y"
+    db: 0
     read_timeout: 0.2s
     write_timeout: 0.2s
+  mongodb:
+    uri: mongodb://115.190.17.186:27017
+    database: shared_device_user
+    username: "root"
+    password: "123456"
+    auth_source: admin
+  mqtt:
+    broker: "tcp://127.0.0.1:1883"
+    port: 1883
+    client_id: "device-service-server"
+    username: ""
+    password: ""
+    keepalive: 60
+    clean_start: false
+    session_expiry: 3600
+    max_reconnect_delay: 30
+    publish_timeout: 5
+  jwt:
+    access_secret: "device-service-access-secret-key"
+    refresh_secret: "device-service-refresh-secret-key"
+    access_expiry: 900s
+    refresh_expiry: 604800s

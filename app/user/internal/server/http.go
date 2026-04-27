@@ -1,13 +1,11 @@
 package server
 
 import (
-<<<<<<< HEAD
+	_ "embed"
 	"encoding/json"
 	stdhttp "net/http"
 
 	v1 "shared-device-saas/api/user/v1"
-=======
->>>>>>> dev/wangqinghua
 	"shared-device-saas/app/user/internal/conf"
 	"shared-device-saas/app/user/internal/service"
 	"shared-device-saas/pkg/auth"
@@ -15,11 +13,14 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	"github.com/go-kratos/kratos/v2/transport/http"
+	swaggerUI "github.com/tx7do/kratos-swagger-ui"
 )
 
-// NewHTTPServer new an HTTP server.
-<<<<<<< HEAD
-// 增加 jwtMgr 和 blacklist 参数用于 JWT 认证
+//go:embed openapi.yaml
+var openapiDoc []byte
+
+// NewHTTPServer 创建 HTTP Server
+// 使用 OperationSelector 选择性应用 JWT 中间件（只对需要认证的接口）
 func NewHTTPServer(
 	c *conf.Server,
 	user *service.UserService,
@@ -38,16 +39,16 @@ func NewHTTPServer(
 				v1.OperationUserServiceGetUser,
 				v1.OperationUserServiceUpdateUser,
 				v1.OperationUserServiceLogout,
+				// 订单接口（支付回调不加 JWT）
+				v1.OperationUserServiceCreateOrder,
+				v1.OperationUserServiceGetOrder,
+				v1.OperationUserServiceListOrders,
+				v1.OperationUserServiceCancelOrder,
+				v1.OperationUserServicePayOrder,
+				// 站点接口
+				v1.OperationUserServiceSearchNearbyStations,
+				v1.OperationUserServiceGetStation,
 			),
-			// 权限检查中间件（针对 GetUser 和 UpdateUser）
-			auth.PermissionMiddleware(),
-=======
-func NewHTTPServer(c *conf.Server, jwtCfg *auth.JWTConfig, svc *service.UserService, logger log.Logger) *http.Server {
-	var opts = []http.ServerOption{
-		http.Middleware(
-			recovery.Recovery(),
-			auth.JWTMiddleware(jwtCfg),
->>>>>>> dev/wangqinghua
 		),
 		// 添加统一返回结构编码器
 		http.ResponseEncoder(responseEncoder),
@@ -62,28 +63,30 @@ func NewHTTPServer(c *conf.Server, jwtCfg *auth.JWTConfig, svc *service.UserServ
 		opts = append(opts, http.Timeout(c.Http.Timeout.AsDuration()))
 	}
 	srv := http.NewServer(opts...)
-<<<<<<< HEAD
+
+	// 使用 proto 自动注册（HEAD 方式，更规范）
 	v1.RegisterUserServiceHTTPServer(srv, user)
-=======
 
-	// 手动注册 HTTP 路由（proto 无 google.api.http 注解，待后续补充）
-	// TODO: 补充 proto HTTP 注解后替换为 pb.RegisterUserServiceHTTPServer(srv, svc)
-	srv.Route("/api/v1/user").POST("/login", svc.LoginHTTP)
-	srv.Route("/api/v1/user").POST("/refresh-token", svc.RefreshTokenHTTP)
-	srv.Route("/api/v1/user").POST("/logout", svc.LogoutHTTP)
-	srv.Route("/api/v1/user").GET("/profile", svc.GetUserHTTP)
-	srv.Route("/api/v1/user").PUT("/profile", svc.UpdateUserHTTP)
-	srv.Route("/api/v1/user").GET("/orders", svc.ListOrdersHTTP)
-	srv.Route("/api/v1/user").POST("/upload", svc.UploadImageHTTP)
-	srv.Route("/api/v1/user").POST("/upload/batch", svc.BatchUploadImagesHTTP)
-	srv.Route("/api/v1/user").POST("/upload/signed-url", svc.GetSignedURLHTTP)
-	srv.Route("/api/v1/user").GET("/wallet", svc.GetWalletHTTP)
-	srv.Route("/api/v1/user").GET("/wallet/transactions", svc.ListTransactionsHTTP)
-	srv.Route("/api/v1/user").POST("/recharge", svc.CreateRechargeHTTP)
-	srv.Route("/api/v1/user").POST("/recharge/callback", svc.RechargeCallbackHTTP)
-	srv.Route("/api/v1/user").GET("/recharges", svc.ListRechargesHTTP)
+	// 提供 openapi.yaml 静态文件服务（必须在 Swagger UI 之前注册，否则 HandlePrefix 会吞掉子路径）
+	srv.Route("/docs").GET("/openapi.yaml", func(ctx http.Context) error {
+		ctx.Response().Header().Set("Content-Type", "application/yaml")
+		ctx.Response().Write(openapiDoc)
+		return nil
+	})
 
->>>>>>> dev/wangqinghua
+	// Swagger UI（内嵌静态资源，访问 /docs/ 即可）
+	swaggerUI.RegisterSwaggerUIServer(srv, "Shared Device SaaS API", "/docs/openapi.yaml", "/docs/")
+
+	// 手动注册额外的 HTTP 路由（proto 中未定义 google.api.http 注解的业务接口）
+	srv.Route("/api/v1/user").POST("/upload", user.UploadImageHTTP)
+	srv.Route("/api/v1/user").POST("/upload/batch", user.BatchUploadImagesHTTP)
+	srv.Route("/api/v1/user").POST("/upload/signed-url", user.GetSignedURLHTTP)
+	srv.Route("/api/v1/user").GET("/wallet", user.GetWalletHTTP)
+	srv.Route("/api/v1/user").GET("/wallet/transactions", user.ListTransactionsHTTP)
+	srv.Route("/api/v1/user").POST("/recharge", user.CreateRechargeHTTP)
+	srv.Route("/api/v1/user").POST("/recharge/callback", user.RechargeCallbackHTTP)
+	srv.Route("/api/v1/user").GET("/recharges", user.ListRechargesHTTP)
+
 	return srv
 }
 
@@ -97,23 +100,19 @@ type StandardResponse struct {
 // responseEncoder 统一返回结构编码器
 // 把所有成功返回包装成 {code: 200, message: "操作成功", data: 原数据}
 func responseEncoder(w stdhttp.ResponseWriter, r *stdhttp.Request, v interface{}) error {
-	// 构造统一返回结构
 	resp := StandardResponse{
 		Code:    200,
 		Message: "操作成功",
 		Data:    v,
 	}
 
-	// 设置响应头
 	w.Header().Set("Content-Type", "application/json")
 
-	// 序列化返回
 	data, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}
 
-	// 写入响应
 	w.Write(data)
 	return nil
 }

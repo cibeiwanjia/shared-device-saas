@@ -11,13 +11,20 @@ import (
 )
 
 // ProviderSet is biz providers.
-<<<<<<< HEAD
-var ProviderSet = wire.NewSet(NewUserUsecase, NewJWTManager)
+var ProviderSet = wire.NewSet(
+	NewUserUsecase,
+	NewOrderUsecase,
+	NewUploadUsecase,
+	NewWalletUsecase,
+	NewRechargeUsecase,
+	NewStationUsecase,
+	NewInventoryUsecase,
+)
 
 // NewJWTManager creates JWT manager from config
 func NewJWTManager(c *conf.Data, logger log.Logger) *auth.JWTManager {
 	log.NewHelper(logger).Info("Creating JWT manager")
-	
+
 	jwtCfg := c.GetJwt()
 	if jwtCfg == nil {
 		// Default JWT config
@@ -46,12 +53,3 @@ func NewJWTManager(c *conf.Data, logger log.Logger) *auth.JWTManager {
 		refreshExpiry,
 	)
 }
-=======
-var ProviderSet = wire.NewSet(
-	NewJwtUsecase,
-	NewOrderUsecase,
-	NewUploadUsecase,
-	NewWalletUsecase,
-	NewRechargeUsecase,
-)
->>>>>>> dev/wangqinghua

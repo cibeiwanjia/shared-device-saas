@@ -7,22 +7,17 @@
 package main
 
 import (
-	"github.com/go-kratos/kratos/v2"
-	"github.com/go-kratos/kratos/v2/log"
 	"shared-device-saas/app/user/internal/biz"
 	"shared-device-saas/app/user/internal/conf"
 	"shared-device-saas/app/user/internal/data"
 	"shared-device-saas/app/user/internal/server"
 	"shared-device-saas/app/user/internal/service"
-<<<<<<< HEAD
-=======
 	"shared-device-saas/pkg/auth"
 	"shared-device-saas/pkg/payment"
 	"shared-device-saas/pkg/storage"
 
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
->>>>>>> dev/wangqinghua
 )
 
 import (
@@ -31,14 +26,18 @@ import (
 
 // Injectors from wire.go:
 
-// newJWTConfig 从 conf.JWT 配置创建 auth.JWTConfig
-func newJWTConfig(c *conf.JWT) *auth.JWTConfig {
-	return &auth.JWTConfig{
-		Secret:        c.GetSecret(),
-		AccessExpire:  c.GetAccessExpire(),
-		RefreshExpire: c.GetRefreshExpire(),
-		Issuer:        c.GetIssuer(),
+// newJWTManager 从 conf.Data.JWT 配置创建 auth.JWTManager
+func newJWTManager(c *conf.Data) *auth.JWTManager {
+	jwtCfg := c.GetJwt()
+	if jwtCfg == nil {
+		panic("jwt config not found")
 	}
+	return auth.NewJWTManager(
+		jwtCfg.GetAccessSecret(),
+		jwtCfg.GetRefreshSecret(),
+		jwtCfg.GetAccessExpiry().AsDuration(),
+		jwtCfg.GetRefreshExpiry().AsDuration(),
+	)
 }
 
 // newStorageProvider 从 conf.Storage 配置创建 StorageProvider
@@ -71,29 +70,11 @@ func newPaymentChannels() map[int32]payment.PaymentChannel {
 }
 
 // wireApp init kratos application.
-<<<<<<< HEAD
-func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
-	dataData, cleanup, err := data.NewData(confData, logger)
-	if err != nil {
-		return nil, nil, err
-	}
-	userRepo := data.NewUserRepo(dataData, confData, logger)
-	client, cleanup2, err := data.NewRedisClient(confData, logger)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	ihuyiClient := data.NewSMSClient(confData, logger)
-	jwtManager := biz.NewJWTManager(confData, logger)
-	userUsecase := biz.NewUserUsecase(userRepo, client, ihuyiClient, jwtManager, logger)
-	userService := service.NewUserService(userUsecase)
-	grpcServer := server.NewGRPCServer(confServer, userService, logger)
-	blacklist := data.NewRedisBlacklist(client, logger)
-	httpServer := server.NewHTTPServer(confServer, userService, jwtManager, blacklist, logger)
-=======
-func wireApp(confServer *conf.Server, confData *conf.Data, confJWT *conf.JWT, confStorage *conf.Storage, logger log.Logger) (*kratos.App, func(), error) {
-	// 基础设施
-	jwtCfg := newJWTConfig(confJWT)
+func wireApp(confServer *conf.Server, confData *conf.Data, confStorage *conf.Storage, logger log.Logger) (*kratos.App, func(), error) {
+	// 基础设施 — JWT Manager
+	jwtMgr := newJWTManager(confData)
+
+	// 基础设施 — Storage Provider
 	storageProvider, err := newStorageProvider(confStorage)
 	if err != nil {
 		return nil, nil, err
@@ -101,30 +82,45 @@ func wireApp(confServer *conf.Server, confData *conf.Data, confJWT *conf.JWT, co
 	paymentChannels := newPaymentChannels()
 
 	// Data 层
-	dataData, cleanup, err := data.NewData(confData)
+	dataData, cleanup, err := data.NewData(confData, logger)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Repo
+	userRepo := data.NewUserRepo(dataData, confData, logger)
 	orderRepo := data.NewOrderRepo(dataData, logger)
 	walletRepo := data.NewWalletRepo(dataData, logger)
 	rechargeRepo := data.NewRechargeRepo(dataData, logger)
+	stationRepo := data.NewStationRepo(dataData, logger)
+	inventoryRepo := data.NewInventoryRepo(dataData, logger)
+
+	// Redis + SMS + Amap
+	redisClient, cleanup2, err := data.NewRedisClient(confData, logger)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	ihuyiClient := data.NewSMSClient(confData, logger)
+	blacklist := data.NewRedisBlacklist(redisClient, logger)
+	amapClient := data.NewAmapClient(confData, logger)
 
 	// Usecase
-	_ = biz.NewJwtUsecase(jwtCfg, logger) // JWT usecase 暂不注入 service，保留供认证接口使用
-	orderUsecase := biz.NewOrderUsecase(orderRepo, logger)
+	userUsecase := biz.NewUserUsecase(userRepo, redisClient, ihuyiClient, jwtMgr, logger)
+	inventoryUsecase := biz.NewInventoryUsecase(inventoryRepo, logger)
+	orderUsecase := biz.NewOrderUsecase(orderRepo, inventoryUsecase, paymentChannels, logger)
 	uploadUsecase := biz.NewUploadUsecase(storageProvider, confStorage.GetBucket(), logger)
 	walletUsecase := biz.NewWalletUsecase(walletRepo, logger)
 	rechargeUsecase := biz.NewRechargeUsecase(rechargeRepo, *walletUsecase, paymentChannels, logger)
+	stationUsecase := biz.NewStationUsecase(stationRepo, amapClient, logger)
 
 	// Service
-	userService := service.NewUserService(orderUsecase, uploadUsecase, walletUsecase, rechargeUsecase, logger)
+	userService := service.NewUserService(userUsecase, orderUsecase, uploadUsecase, walletUsecase, rechargeUsecase, stationUsecase, logger)
 
 	// Server
-	grpcServer := server.NewGRPCServer(confServer, jwtCfg, userService, logger)
-	httpServer := server.NewHTTPServer(confServer, jwtCfg, userService, logger)
->>>>>>> dev/wangqinghua
+	grpcServer := server.NewGRPCServer(confServer, userService, jwtMgr, blacklist, logger)
+	httpServer := server.NewHTTPServer(confServer, userService, jwtMgr, blacklist, logger)
+
 	app := newApp(logger, grpcServer, httpServer)
 	return app, func() {
 		cleanup2()

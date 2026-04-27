@@ -2,32 +2,18 @@ package auth
 
 import (
 	"context"
-<<<<<<< HEAD
 	"fmt"
 	"strings"
 
 	"shared-device-saas/pkg/errx"
 
-=======
-	"strings"
-
->>>>>>> dev/wangqinghua
 	"github.com/go-kratos/kratos/v2/middleware"
 	"github.com/go-kratos/kratos/v2/transport"
 )
 
-<<<<<<< HEAD
-type contextKey string
-
-const (
-	contextKeyUserID    contextKey = "user_id"
-	contextKeyTenantID  contextKey = "tenant_id"
-	contextKeySessionID contextKey = "session_id"
-	contextKeyDeviceID  contextKey = "device_id"
-	contextKeyRoles     contextKey = "roles"
-)
-
-// JWTMiddleware JWT 认证中间件
+// JWTMiddleware JWT 认证中间件（严格模式）
+// 从 HTTP Header Authorization: Bearer <token> 解析并验证 token
+// 支持黑名单检查和 RBAC 角色验证
 func JWTMiddleware(jwtMgr *JWTManager, blacklist Blacklist, requiredRoles ...string) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -60,44 +46,16 @@ func JWTMiddleware(jwtMgr *JWTManager, blacklist Blacklist, requiredRoles ...str
 			}
 
 			// 注入 Context
-			ctx = context.WithValue(ctx, contextKeyUserID, claims.UserID)
-			ctx = context.WithValue(ctx, contextKeyTenantID, claims.TenantID)
-			ctx = context.WithValue(ctx, contextKeySessionID, claims.SessionID)
-			ctx = context.WithValue(ctx, contextKeyDeviceID, claims.DeviceID)
-			ctx = context.WithValue(ctx, contextKeyRoles, claims.Roles)
+			ctx = SetUserID(ctx, claims.UserID)
+			ctx = SetTenantID(ctx, claims.TenantID)
+			ctx = SetSessionID(ctx, claims.SessionID)
+			ctx = SetDeviceID(ctx, claims.DeviceID)
+			ctx = SetRoles(ctx, claims.Roles)
 
-=======
-// JWTMiddleware 创建 Kratos JWT 中间件
-// 从 HTTP Header Authorization: Bearer <token> 或 gRPC metadata 解析 token
-func JWTMiddleware(cfg *JWTConfig) middleware.Middleware {
-	return func(handler middleware.Handler) middleware.Handler {
-		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			// 从 transport 层获取 token
-			tr, ok := transport.FromServerContext(ctx)
-			if ok {
-				var tokenStr string
-				// 从 Header 获取 Authorization
-				authHeader := tr.RequestHeader().Get("Authorization")
-				if strings.HasPrefix(authHeader, "Bearer ") {
-					tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-				}
-
-				if tokenStr != "" {
-					claims, err := ParseToken(cfg, tokenStr)
-					if err == nil {
-						ctx = SetUserID(ctx, claims.UserID)
-						ctx = SetTenantID(ctx, claims.TenantID)
-						ctx = SetDeviceID(ctx, claims.DeviceID)
-					}
-					// Token 无效时不拦截，仅不注入上下文（支持匿名访问）
-				}
-			}
->>>>>>> dev/wangqinghua
 			return handler(ctx, req)
 		}
 	}
 }
-<<<<<<< HEAD
 
 // extractToken 从 HTTP/gRPC Header 提取 Bearer Token
 func extractToken(ctx context.Context) (string, error) {
@@ -128,47 +86,3 @@ func hasRole(userRoles, requiredRoles []string) bool {
 	}
 	return false
 }
-
-// --- Context 取值工具函数 ---
-
-// GetUserID 从 Context 获取用户 ID（返回 MongoDB ObjectID.Hex()）
-func GetUserID(ctx context.Context) string {
-	if v, ok := ctx.Value(contextKeyUserID).(string); ok {
-		return v
-	}
-	return ""
-}
-
-// GetTenantID 从 Context 获取租户 ID
-func GetTenantID(ctx context.Context) int64 {
-	if v, ok := ctx.Value(contextKeyTenantID).(int64); ok {
-		return v
-	}
-	return 0
-}
-
-// GetSessionID 从 Context 获取会话 ID
-func GetSessionID(ctx context.Context) string {
-	if v, ok := ctx.Value(contextKeySessionID).(string); ok {
-		return v
-	}
-	return ""
-}
-
-// GetDeviceID 从 Context 获取设备 ID
-func GetDeviceID(ctx context.Context) string {
-	if v, ok := ctx.Value(contextKeyDeviceID).(string); ok {
-		return v
-	}
-	return ""
-}
-
-// GetRoles 从 Context 获取用户角色
-func GetRoles(ctx context.Context) []string {
-	if v, ok := ctx.Value(contextKeyRoles).([]string); ok {
-		return v
-	}
-	return nil
-}
-=======
->>>>>>> dev/wangqinghua

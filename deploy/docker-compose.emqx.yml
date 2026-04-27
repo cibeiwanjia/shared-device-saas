@@ -1,0 +1,24 @@
+services:
+  emqx:
+    image: emqx/emqx:5.8
+    container_name: emqx
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "18083:18083"
+    environment:
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_log:/opt/emqx/log
+    healthcheck:
+      test: ["CMD", "emqx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  emqx_data:
+  emqx_log:

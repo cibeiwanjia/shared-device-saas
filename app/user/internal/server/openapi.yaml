@@ -1,0 +1,765 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: UserService API
+    description: 用户服务
+    version: 0.0.1
+security:
+    - BearerAuth: []
+paths:
+    /v1/me:
+        get:
+            tags:
+                - UserService
+            description: 获取当前登录用户信息（不需要传id，从Token解析）
+            operationId: UserService_GetMe
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.GetMeReply'
+    /v1/order:
+        post:
+            tags:
+                - UserService
+            description: 创建订单
+            operationId: UserService_CreateOrder
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.CreateOrderRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.CreateOrderReply'
+    /v1/order/callback/{channel}:
+        post:
+            tags:
+                - UserService
+            description: 支付回调入口
+            operationId: UserService_HandleCallback
+            security: []
+            parameters:
+                - name: channel
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.CallbackRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.CallbackReply'
+    /v1/order/{orderNo}:
+        get:
+            tags:
+                - UserService
+            description: 查询单个订单
+            operationId: UserService_GetOrder
+            parameters:
+                - name: orderNo
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.GetOrderReply'
+    /v1/order/{orderNo}/cancel:
+        post:
+            tags:
+                - UserService
+            description: 取消订单
+            operationId: UserService_CancelOrder
+            parameters:
+                - name: orderNo
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.CancelOrderRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.CancelOrderReply'
+    /v1/order/{orderNo}/pay:
+        post:
+            tags:
+                - UserService
+            description: 发起支付
+            operationId: UserService_PayOrder
+            parameters:
+                - name: orderNo
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.PayOrderRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.PayOrderReply'
+    /v1/orders:
+        get:
+            tags:
+                - UserService
+            description: 多维筛选+游标分页查询订单列表
+            operationId: UserService_ListOrders
+            parameters:
+                - name: createdAfter
+                  in: query
+                  schema:
+                    type: string
+                - name: createdBefore
+                  in: query
+                  schema:
+                    type: string
+                - name: source
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: status
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: minAmount
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: maxAmount
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: paymentMethod
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: limit
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: cursor
+                  in: query
+                  schema:
+                    type: string
+                - name: sortField
+                  in: query
+                  schema:
+                    type: string
+                - name: sortDirection
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.ListOrdersReply'
+    /v1/station/{stationId}:
+        get:
+            tags:
+                - UserService
+            description: 获取站点详情（含柜格信息）
+            operationId: UserService_GetStation
+            parameters:
+                - name: stationId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.GetStationReply'
+    /v1/stations/nearby:
+        get:
+            tags:
+                - UserService
+            description: 搜索附近站点（调用高德 + 本地 DB）
+            operationId: UserService_SearchNearbyStations
+            parameters:
+                - name: lng
+                  in: query
+                  schema:
+                    type: string
+                - name: lat
+                  in: query
+                  schema:
+                    type: string
+                - name: radius
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: keywords
+                  in: query
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.SearchNearbyStationsReply'
+    /v1/user/login:
+        post:
+            tags:
+                - UserService
+            description: 登录（账号 + 密码）
+            operationId: UserService_Login
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.LoginByPwdRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.LoginReply'
+    /v1/user/login/sms:
+        post:
+            tags:
+                - UserService
+            description: 短信验证码登录（自动注册）
+            operationId: UserService_LoginBySms
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.LoginBySmsRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.LoginReply'
+    /v1/user/logout:
+        post:
+            tags:
+                - UserService
+            description: 退出登录
+            operationId: UserService_Logout
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.LogoutRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.LogoutReply'
+    /v1/user/register:
+        post:
+            tags:
+                - UserService
+            description: 注册（手机号 + 密码）
+            operationId: UserService_Register
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.RegisterRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.RegisterReply'
+    /v1/user/sms/send:
+        post:
+            tags:
+                - UserService
+            description: 发送短信验证码
+            operationId: UserService_SendSmsCode
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.SendSmsRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.SendSmsReply'
+    /v1/user/token/refresh:
+        post:
+            tags:
+                - UserService
+            description: 刷新 Token
+            operationId: UserService_RefreshToken
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.RefreshTokenRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.LoginReply'
+    /v1/user/{id}:
+        get:
+            tags:
+                - UserService
+            description: 获取用户信息（需要权限检查）
+            operationId: UserService_GetUser
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.GetUserReply'
+        put:
+            tags:
+                - UserService
+            description: 更新用户信息
+            operationId: UserService_UpdateUser
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.UpdateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.UpdateUserReply'
+components:
+    securitySchemes:
+        BearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+            description: 输入格式为 Bearer {accessToken}（从 /v1/user/login 获取）
+    schemas:
+        api.user.v1.CallbackReply:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                message:
+                    type: string
+        api.user.v1.CallbackRequest:
+            type: object
+            properties:
+                channel:
+                    type: string
+                body:
+                    type: string
+            description: 支付回调
+        api.user.v1.CancelOrderReply:
+            type: object
+            properties:
+                order:
+                    $ref: '#/components/schemas/api.user.v1.OrderInfo'
+        api.user.v1.CancelOrderRequest:
+            type: object
+            properties:
+                orderNo:
+                    type: string
+                reason:
+                    type: string
+            description: 取消订单
+        api.user.v1.CreateOrderReply:
+            type: object
+            properties:
+                order:
+                    $ref: '#/components/schemas/api.user.v1.OrderInfo'
+        api.user.v1.CreateOrderRequest:
+            type: object
+            properties:
+                source:
+                    type: integer
+                    format: int32
+                orderType:
+                    type: string
+                totalAmount:
+                    type: integer
+                    format: int32
+                currency:
+                    type: string
+                title:
+                    type: string
+                description:
+                    type: string
+                extraJson:
+                    type: string
+            description: 创建订单
+        api.user.v1.GetMeReply:
+            type: object
+            properties:
+                id:
+                    type: string
+                username:
+                    type: string
+                phone:
+                    type: string
+                nickname:
+                    type: string
+                avatar:
+                    type: string
+                role:
+                    type: string
+                createTime:
+                    type: string
+        api.user.v1.GetOrderReply:
+            type: object
+            properties:
+                order:
+                    $ref: '#/components/schemas/api.user.v1.OrderInfo'
+        api.user.v1.GetStationReply:
+            type: object
+            properties:
+                station:
+                    $ref: '#/components/schemas/api.user.v1.StationInfo'
+        api.user.v1.GetUserReply:
+            type: object
+            properties:
+                id:
+                    type: string
+                username:
+                    type: string
+                phone:
+                    type: string
+                nickname:
+                    type: string
+                avatar:
+                    type: string
+                createTime:
+                    type: string
+        api.user.v1.GridInfo:
+            type: object
+            properties:
+                id:
+                    type: string
+                stationId:
+                    type: string
+                gridNo:
+                    type: string
+                gridType:
+                    type: string
+                status:
+                    type: integer
+                    format: int32
+                pricePerHour:
+                    type: integer
+                    format: int32
+            description: 柜格信息
+        api.user.v1.ListOrdersReply:
+            type: object
+            properties:
+                orders:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.user.v1.OrderInfo'
+                nextCursor:
+                    type: string
+                hasMore:
+                    type: boolean
+                totalCount:
+                    type: integer
+                    format: int32
+        api.user.v1.LoginByPwdRequest:
+            type: object
+            properties:
+                username:
+                    type: string
+                password:
+                    type: string
+            description: 1. 账号密码登录
+        api.user.v1.LoginBySmsRequest:
+            type: object
+            properties:
+                phone:
+                    type: string
+                code:
+                    type: string
+            description: 2. 短信验证码登录（自动注册）
+        api.user.v1.LoginReply:
+            type: object
+            properties:
+                id:
+                    type: string
+                username:
+                    type: string
+                phone:
+                    type: string
+                nickname:
+                    type: string
+                avatar:
+                    type: string
+                accessToken:
+                    type: string
+                refreshToken:
+                    type: string
+                expiresIn:
+                    type: string
+            description: 6. 登录统一返回（只保留前8个）
+        api.user.v1.LogoutReply:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                message:
+                    type: string
+        api.user.v1.LogoutRequest:
+            type: object
+            properties:
+                refreshToken:
+                    type: string
+            description: 8. 退出登录
+        api.user.v1.OrderInfo:
+            type: object
+            properties:
+                id:
+                    type: string
+                tenantId:
+                    type: string
+                userId:
+                    type: string
+                orderNo:
+                    type: string
+                source:
+                    type: integer
+                    format: int32
+                orderType:
+                    type: string
+                status:
+                    type: integer
+                    format: int32
+                totalAmount:
+                    type: integer
+                    format: int32
+                currency:
+                    type: string
+                paymentMethod:
+                    type: integer
+                    format: int32
+                title:
+                    type: string
+                description:
+                    type: string
+                extraJson:
+                    type: string
+                paidAt:
+                    type: string
+                createdAt:
+                    type: string
+                updatedAt:
+                    type: string
+            description: 订单全字段
+        api.user.v1.PayOrderReply:
+            type: object
+            properties:
+                orderNo:
+                    type: string
+                payParams:
+                    type: string
+        api.user.v1.PayOrderRequest:
+            type: object
+            properties:
+                orderNo:
+                    type: string
+                paymentMethod:
+                    type: integer
+                    format: int32
+            description: 发起支付
+        api.user.v1.RefreshTokenRequest:
+            type: object
+            properties:
+                refreshToken:
+                    type: string
+            description: 7. 刷新Token
+        api.user.v1.RegisterReply:
+            type: object
+            properties:
+                id:
+                    type: string
+            description: 4. 注册返回（只返回ID）
+        api.user.v1.RegisterRequest:
+            type: object
+            properties:
+                phone:
+                    type: string
+                smsCode:
+                    type: string
+                password:
+                    type: string
+                nickname:
+                    type: string
+                inviteCode:
+                    type: string
+            description: 3. 注册（手机号+验证码+密码+邀请码）
+        api.user.v1.SearchNearbyStationsReply:
+            type: object
+            properties:
+                stations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.user.v1.StationInfo'
+                totalCount:
+                    type: integer
+                    format: int32
+        api.user.v1.SendSmsReply:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                expire:
+                    type: string
+        api.user.v1.SendSmsRequest:
+            type: object
+            properties:
+                phone:
+                    type: string
+            description: 5. 发送短信验证码
+        api.user.v1.StationInfo:
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                address:
+                    type: string
+                lat:
+                    type: number
+                    format: double
+                lng:
+                    type: number
+                    format: double
+                province:
+                    type: string
+                city:
+                    type: string
+                district:
+                    type: string
+                status:
+                    type: integer
+                    format: int32
+                distance:
+                    type: integer
+                    format: int32
+                availableGrids:
+                    type: integer
+                    format: int32
+                totalGrids:
+                    type: integer
+                    format: int32
+                minPrice:
+                    type: integer
+                    format: int32
+                grids:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.user.v1.GridInfo'
+            description: 站点信息
+        api.user.v1.UpdateUserReply:
+            type: object
+            properties:
+                id:
+                    type: string
+                nickname:
+                    type: string
+                avatar:
+                    type: string
+        api.user.v1.UpdateUserRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+                nickname:
+                    type: string
+                avatar:
+                    type: string
+            description: 11. 更新用户信息（需要权限检查）
+tags:
+    - name: UserService

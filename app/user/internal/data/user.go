@@ -22,6 +22,7 @@ type userRepo struct {
 // userDocument MongoDB 用户文档结构（小驼峰命名）
 type userDocument struct {
 	ID         primitive.ObjectID `bson:"_id,omitempty"`
+	MysqlID    string             `bson:"mysql_id,omitempty"`
 	Username   string             `bson:"username"`
 	Password   string             `bson:"password"`
 	Email      string             `bson:"email"`
@@ -35,8 +36,77 @@ type userDocument struct {
 	UpdateTime int64              `bson:"updateTime"`
 }
 
-// NewUserRepo 创建用户仓储
+// NewUserRepo 创建双写用户仓储（MySQL 主库 + MongoDB 副本）
 func NewUserRepo(data *Data, c *conf.Data, logger log.Logger) biz.UserRepo {
+	helper := log.NewHelper(logger)
+
+	mongoRepo := newMongoUserRepo(data, c, logger)
+	mysqlRepo := newMysqlUserRepo(data.GetSqlDB(), logger)
+
+	if mysqlRepo == nil || mysqlRepo.db == nil {
+		helper.Warn("MySQL not available, falling back to MongoDB-only")
+		return mongoRepo
+	}
+
+	helper.Info("Using dual-write user storage: MySQL (primary) + MongoDB (replica)")
+	return &userDualWriteRepo{
+		mysql:  mysqlRepo,
+		mongo:  mongoRepo,
+		log:    helper,
+	}
+}
+
+// userDualWriteRepo MySQL主库 + MongoDB副本 双写仓储
+type userDualWriteRepo struct {
+	mysql *userMysqlRepo
+	mongo biz.UserRepo
+	log   *log.Helper
+}
+
+func (r *userDualWriteRepo) Create(ctx context.Context, user *biz.User) (*biz.User, error) {
+	// 1. 写入 MySQL（主库，生成自增 ID）
+	u, err := r.mysql.Create(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 同步写入 MongoDB（best-effort 副本）
+	if _, mongoErr := r.mongo.Create(ctx, u); mongoErr != nil {
+		r.log.Warnf("MongoDB sync create failed (non-fatal): %v", mongoErr)
+	}
+
+	return u, nil
+}
+
+func (r *userDualWriteRepo) FindByPhone(ctx context.Context, phone string) (*biz.User, error) {
+	return r.mysql.FindByPhone(ctx, phone)
+}
+
+func (r *userDualWriteRepo) FindByUsername(ctx context.Context, username string) (*biz.User, error) {
+	return r.mysql.FindByUsername(ctx, username)
+}
+
+func (r *userDualWriteRepo) FindByID(ctx context.Context, id string) (*biz.User, error) {
+	return r.mysql.FindByID(ctx, id)
+}
+
+func (r *userDualWriteRepo) Update(ctx context.Context, user *biz.User) (*biz.User, error) {
+	u, err := r.mysql.Update(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	if _, mongoErr := r.mongo.Update(ctx, u); mongoErr != nil {
+		r.log.Warnf("MongoDB sync update failed (non-fatal): %v", mongoErr)
+	}
+	return u, nil
+}
+
+// ============================================
+// MongoDB UserRepo 实现
+// ============================================
+
+// newMongoUserRepo 创建 MongoDB 用户仓储
+func newMongoUserRepo(data *Data, c *conf.Data, logger log.Logger) biz.UserRepo {
 	helper := log.NewHelper(logger)
 
 	mongoCfg := c.GetMongodb()
@@ -75,15 +145,22 @@ func (r *userRepo) Create(ctx context.Context, user *biz.User) (*biz.User, error
 		UpdateTime: user.UpdateTime,
 	}
 
+	// 如果已有 ID（来自 MySQL 自增），存为 mysql_id 字段
+	if user.ID != "" {
+		doc.MysqlID = user.ID
+	}
+
 	result, err := r.collection.InsertOne(ctx, doc)
 	if err != nil {
 		r.log.Errorf("Failed to create user: %v", err)
 		return nil, err
 	}
 
-	// 使用 ObjectID 作为用户 ID
-	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
-		user.ID = oid.Hex() // 返回 ObjectID 的 Hex 字符串
+	// 如果没有预置 ID，使用 MongoDB ObjectID
+	if user.ID == "" {
+		if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+			user.ID = oid.Hex()
+		}
 	}
 
 	r.log.Infof("Created user in MongoDB: phone=%s, id=%s", user.Phone, user.ID)

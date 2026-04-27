@@ -1,0 +1,26 @@
+-- 订单表（涉钱→MySQL 原则，订单与钱包需要事务保证一致性）
+CREATE TABLE IF NOT EXISTS `orders` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL COMMENT '租户ID',
+  `user_id` VARCHAR(32) NOT NULL COMMENT '用户ID（MongoDB ObjectID.Hex()）',
+  `order_no` VARCHAR(64) NOT NULL COMMENT '订单号（格式: ORD{source}{timestamp}{随机6位}）',
+  `source` TINYINT UNSIGNED NOT NULL COMMENT '来源: 1=门票 2=共享单车 3=充电宝 4=智能快递柜',
+  `order_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '订单类型',
+  `status` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '状态: 1=待支付 2=已支付 3=已完成 4=已取消 5=已退款',
+  `total_amount` INT UNSIGNED NOT NULL COMMENT '金额（分）',
+  `currency` VARCHAR(8) NOT NULL DEFAULT 'CNY' COMMENT '币种',
+  `payment_method` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '支付方式: 0=未支付 1=微信 2=支付宝 3=钱包余额',
+  `title` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '订单标题',
+  `description` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '订单描述',
+  `extra_json` TEXT COMMENT '扩展字段（JSON）',
+  `paid_at` BIGINT DEFAULT NULL COMMENT '支付时间（Unix时间戳）',
+  `created_at` BIGINT NOT NULL COMMENT '创建时间（Unix时间戳）',
+  `updated_at` BIGINT NOT NULL COMMENT '更新时间（Unix时间戳）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_no` (`order_no`),
+  KEY `idx_tenant_user_created` (`tenant_id`, `user_id`, `created_at` DESC),
+  KEY `idx_tenant_user_source` (`tenant_id`, `user_id`, `source`),
+  KEY `idx_tenant_user_status` (`tenant_id`, `user_id`, `status`),
+  KEY `idx_source_status` (`source`, `status`),
+  CONSTRAINT `chk_total_amount_positive` CHECK (`total_amount` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单表';

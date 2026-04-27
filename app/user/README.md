@@ -1,0 +1,1 @@
+curl -s 'http://localhost:8001/v1/stations/nearby?lng=116.3168&lat=39.9836&radius=5000'

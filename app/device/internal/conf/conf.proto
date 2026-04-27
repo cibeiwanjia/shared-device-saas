@@ -33,9 +33,39 @@ message Data {
   message Redis {
     string network = 1;
     string addr = 2;
-    google.protobuf.Duration read_timeout = 3;
-    google.protobuf.Duration write_timeout = 4;
+    int32 db = 3;
+    string password = 4;
+    google.protobuf.Duration read_timeout = 5;
+    google.protobuf.Duration write_timeout = 6;
+  }
+  message MongoDB {
+    string uri = 1;
+    string database = 2;
+    string username = 3;
+    string password = 4;
+    string auth_source = 5;
+  }
+  message MQTT {
+    string broker = 1;
+    int32 port = 2;
+    string client_id = 3;
+    string username = 4;
+    string password = 5;
+    uint32 keepalive = 6;
+    bool clean_start = 7;
+    uint32 session_expiry = 8;
+    uint32 max_reconnect_delay = 9;
+    uint32 publish_timeout = 10;
+  }
+  message JWT {
+    string access_secret = 1;
+    string refresh_secret = 2;
+    google.protobuf.Duration access_expiry = 3;
+    google.protobuf.Duration refresh_expiry = 4;
   }
   Database database = 1;
   Redis redis = 2;
+  MongoDB mongodb = 3;
+  MQTT mqtt = 4;
+  JWT jwt = 5;
 }

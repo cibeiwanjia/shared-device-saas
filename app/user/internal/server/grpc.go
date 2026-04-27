@@ -1,11 +1,7 @@
 package server
 
 import (
-<<<<<<< HEAD
 	v1 "shared-device-saas/api/user/v1"
-=======
-	pb "shared-device-saas/api/user/v1"
->>>>>>> dev/wangqinghua
 	"shared-device-saas/app/user/internal/conf"
 	"shared-device-saas/app/user/internal/service"
 	"shared-device-saas/pkg/auth"
@@ -16,15 +12,11 @@ import (
 )
 
 // NewGRPCServer new a gRPC server.
-<<<<<<< HEAD
-func NewGRPCServer(c *conf.Server, user *service.UserService, logger log.Logger) *grpc.Server {
-=======
-func NewGRPCServer(c *conf.Server, jwtCfg *auth.JWTConfig, svc *service.UserService, logger log.Logger) *grpc.Server {
->>>>>>> dev/wangqinghua
+func NewGRPCServer(c *conf.Server, user *service.UserService, jwtMgr *auth.JWTManager, blacklist auth.Blacklist, logger log.Logger) *grpc.Server {
 	var opts = []grpc.ServerOption{
 		grpc.Middleware(
 			recovery.Recovery(),
-			auth.JWTMiddleware(jwtCfg),
+			auth.JWTMiddleware(jwtMgr, blacklist),
 		),
 	}
 	if c.Grpc.Network != "" {
@@ -37,10 +29,6 @@ func NewGRPCServer(c *conf.Server, jwtCfg *auth.JWTConfig, svc *service.UserServ
 		opts = append(opts, grpc.Timeout(c.Grpc.Timeout.AsDuration()))
 	}
 	srv := grpc.NewServer(opts...)
-<<<<<<< HEAD
 	v1.RegisterUserServiceServer(srv, user)
-=======
-	pb.RegisterUserServiceServer(srv, svc)
->>>>>>> dev/wangqinghua
 	return srv
 }
