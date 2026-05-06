@@ -1,0 +1,221 @@
+syntax = "proto3";
+
+package api.storage.v1;
+
+option go_package = "shared-device-saas/api/storage/v1;v1";
+
+import "google/api/annotations.proto";
+
+service StorageService {
+  rpc InitiateDelivery (InitiateDeliveryRequest) returns (InitiateDeliveryReply) {
+    option (google.api.http) = { post: "/v1/storage/delivery/initiate" body: "*" };
+  }
+  rpc Pickup (PickupRequest) returns (PickupReply) {
+    option (google.api.http) = { post: "/v1/storage/pickup" body: "*" };
+  }
+  rpc ConfirmPickup (ConfirmPickupRequest) returns (ConfirmPickupReply) {
+    option (google.api.http) = { post: "/v1/storage/pickup/confirm" body: "*" };
+  }
+  rpc InitiateShipment (InitiateShipmentRequest) returns (InitiateShipmentReply) {
+    option (google.api.http) = { post: "/v1/storage/shipment/initiate" body: "*" };
+  }
+  rpc InitiateStorage (InitiateStorageRequest) returns (InitiateStorageReply) {
+    option (google.api.http) = { post: "/v1/storage/store/initiate" body: "*" };
+  }
+  rpc RetrieveStorage (RetrieveStorageRequest) returns (RetrieveStorageReply) {
+    option (google.api.http) = { post: "/v1/storage/store/retrieve" body: "*" };
+  }
+  rpc ConfirmRetrieve (ConfirmRetrieveRequest) returns (ConfirmRetrieveReply) {
+    option (google.api.http) = { post: "/v1/storage/store/retrieve/confirm" body: "*" };
+  }
+  rpc TempOpenCell (TempOpenCellRequest) returns (TempOpenCellReply) {
+    option (google.api.http) = { post: "/v1/storage/store/temp-open" body: "*" };
+  }
+  rpc GetOrder (GetOrderRequest) returns (GetOrderReply) {
+    option (google.api.http) = { get: "/v1/storage/order/{order_no}" };
+  }
+  rpc ListMyOrders (ListMyOrdersRequest) returns (ListMyOrdersReply) {
+    option (google.api.http) = { get: "/v1/storage/orders" };
+  }
+  rpc ListCabinets (ListCabinetsRequest) returns (ListCabinetsReply) {
+    option (google.api.http) = { get: "/v1/storage/cabinets" };
+  }
+  rpc GetCabinetDetail (GetCabinetDetailRequest) returns (GetCabinetDetailReply) {
+    option (google.api.http) = { get: "/v1/storage/cabinet/{id}" };
+  }
+  rpc ForceOpenCell (ForceOpenCellRequest) returns (ForceOpenCellReply) {
+    option (google.api.http) = { post: "/v1/storage/cabinet/cell/force-open" body: "*" };
+  }
+}
+
+message InitiateDeliveryRequest {
+  int64 cabinet_id = 1;
+  int32 cell_type = 2;
+  string tracking_no = 3;
+  int64 recipient_user_id = 4;
+}
+
+message InitiateDeliveryReply {
+  string order_no = 1;
+  int64 cell_id = 2;
+  int32 slot_index = 3;
+}
+
+message PickupRequest {
+  string pickup_code = 1;
+}
+
+message PickupReply {
+  string order_no = 1;
+  int32 fee = 2;
+  string status = 3;
+  string cabinet_name = 4;
+  int32 slot_index = 5;
+}
+
+message ConfirmPickupRequest {
+  string order_no = 1;
+  string pickup_code = 2;
+  int32 paid_amount = 3;
+}
+
+message ConfirmPickupReply {
+  bool ok = 1;
+}
+
+message InitiateShipmentRequest {
+  int64 cabinet_id = 1;
+  int32 cell_type = 2;
+  string courier_company = 3;
+}
+
+message InitiateShipmentReply {
+  string order_no = 1;
+  int64 cell_id = 2;
+  int32 slot_index = 3;
+}
+
+message InitiateStorageRequest {
+  int64 cabinet_id = 1;
+  int32 cell_type = 2;
+}
+
+message InitiateStorageReply {
+  string order_no = 1;
+  int64 cell_id = 2;
+  int32 slot_index = 3;
+}
+
+message RetrieveStorageRequest {
+  string order_no = 1;
+}
+
+message RetrieveStorageReply {
+  int32 fee = 1;
+  string status = 2;
+}
+
+message ConfirmRetrieveRequest {
+  string order_no = 1;
+  int32 paid_amount = 2;
+}
+
+message ConfirmRetrieveReply {
+  bool ok = 1;
+}
+
+message TempOpenCellRequest {
+  string order_no = 1;
+}
+
+message TempOpenCellReply {
+  bool ok = 1;
+}
+
+message GetOrderRequest {
+  string order_no = 1;
+}
+
+message GetOrderReply {
+  int64 id = 1;
+  string order_no = 2;
+  string order_type = 3;
+  int32 status = 4;
+  int32 slot_index = 5;
+  string pickup_code = 6;
+  int32 total_amount = 7;
+  string created_at = 8;
+  string deposited_at = 9;
+}
+
+message ListMyOrdersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string order_type = 3;
+}
+
+message OrderItem {
+  string order_no = 1;
+  string order_type = 2;
+  int32 status = 3;
+  string cabinet_name = 4;
+  int32 slot_index = 5;
+  int32 total_amount = 6;
+  string created_at = 7;
+}
+
+message ListMyOrdersReply {
+  repeated OrderItem items = 1;
+  int32 total = 2;
+}
+
+message ListCabinetsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  int32 status = 3;
+}
+
+message CabinetItem {
+  int64 id = 1;
+  string name = 2;
+  string location_name = 3;
+  int32 total_cells = 4;
+  int32 free_cells = 5;
+  int32 status = 6;
+}
+
+message ListCabinetsReply {
+  repeated CabinetItem items = 1;
+  int32 total = 2;
+}
+
+message GetCabinetDetailRequest {
+  int64 id = 1;
+}
+
+message GetCabinetDetailReply {
+  int64 id = 1;
+  string name = 2;
+  string device_sn = 3;
+  string location_name = 4;
+  int32 total_cells = 5;
+  int32 free_cells = 6;
+  int32 status = 7;
+  repeated CellDetail cells = 8;
+}
+
+message CellDetail {
+  int64 id = 1;
+  int32 slot_index = 2;
+  int32 cell_type = 3;
+  int32 status = 4;
+}
+
+message ForceOpenCellRequest {
+  int64 cell_id = 1;
+  string reason = 2;
+}
+
+message ForceOpenCellReply {
+  bool ok = 1;
+}
