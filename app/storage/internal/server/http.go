@@ -1,7 +1,7 @@
 package server
 
 import (
-	v1 "shared-device-saas/api/helloworld/v1"
+	v1 "shared-device-saas/api/storage/v1"
 	"shared-device-saas/app/storage/internal/conf"
 	"shared-device-saas/app/storage/internal/service"
 
@@ -10,8 +10,7 @@ import (
 	"github.com/go-kratos/kratos/v2/transport/http"
 )
 
-// NewHTTPServer new an HTTP server.
-func NewHTTPServer(c *conf.Server, greeter *service.GreeterService, logger log.Logger) *http.Server {
+func NewHTTPServer(c *conf.Server, storageSvc *service.StorageService, logger log.Logger) *http.Server {
 	var opts = []http.ServerOption{
 		http.Middleware(
 			recovery.Recovery(),
@@ -27,6 +26,6 @@ func NewHTTPServer(c *conf.Server, greeter *service.GreeterService, logger log.L
 		opts = append(opts, http.Timeout(c.Http.Timeout.AsDuration()))
 	}
 	srv := http.NewServer(opts...)
-	v1.RegisterGreeterHTTPServer(srv, greeter)
+	v1.RegisterStorageServiceHTTPServer(srv, storageSvc)
 	return srv
 }
