@@ -9,6 +9,9 @@ package main
 import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"shared-device-saas/api/device/v1"
 	"shared-device-saas/app/storage/internal/biz"
 	"shared-device-saas/app/storage/internal/conf"
 	"shared-device-saas/app/storage/internal/data"
@@ -22,19 +25,55 @@ import (
 
 // Injectors from wire.go:
 
-// wireApp init kratos application.
 func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
-	dataData, cleanup, err := data.NewData(confData)
+	orderFSM := biz.NewOrderFSM()
+	dataData, cleanup, err := data.NewData(confData, logger)
 	if err != nil {
 		return nil, nil, err
 	}
-	greeterRepo := data.NewGreeterRepo(dataData, logger)
-	greeterUsecase := biz.NewGreeterUsecase(greeterRepo)
-	greeterService := service.NewGreeterService(greeterUsecase)
-	grpcServer := server.NewGRPCServer(confServer, greeterService, logger)
-	httpServer := server.NewHTTPServer(confServer, greeterService, logger)
+	cellRepo := data.NewCellRepo(dataData, logger)
+	cellAllocator := biz.NewCellAllocator(cellRepo, logger)
+	pricingRepo := data.NewPricingRepo(dataData, logger)
+	pricingEngine := biz.NewPricingEngine(pricingRepo)
+	client, cleanup2, err := data.NewRedisClient(confData, logger)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	pickupCodeManager := biz.NewPickupCodeManager(client, logger)
+	deviceCommandServiceClient, cleanup3, err := NewDeviceCommandClient(logger)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	deviceCommander := biz.NewDeviceCommander(deviceCommandServiceClient, logger)
+	eventPublisher := biz.NewNoOpEventPublisher(logger)
+	orderRepo := data.NewOrderRepo(dataData, logger)
+	timeoutManager := biz.NewTimeoutManager(cellRepo, deviceCommander, cellAllocator, eventPublisher, orderRepo, logger)
+	cabinetRepo := data.NewCabinetRepo(dataData, logger)
+	deliveryInUsecase := biz.NewDeliveryInUsecase(orderFSM, cellAllocator, pricingEngine, pickupCodeManager, deviceCommander, eventPublisher, timeoutManager, orderRepo, cellRepo, cabinetRepo, logger)
+	deliveryOutUsecase := biz.NewDeliveryOutUsecase(orderFSM, cellAllocator, deviceCommander, orderRepo, cellRepo, cabinetRepo, logger)
+	storageUsecase := biz.NewStorageUsecase(orderFSM, cellAllocator, pricingEngine, deviceCommander, eventPublisher, timeoutManager, orderRepo, cellRepo, cabinetRepo, logger)
+	storageService := service.NewStorageService(deliveryInUsecase, deliveryOutUsecase, storageUsecase, pricingEngine, pickupCodeManager, cellAllocator, orderRepo, cellRepo, cabinetRepo, timeoutManager, logger)
+	storageCallbackService := service.NewStorageCallbackService(deliveryInUsecase, deliveryOutUsecase, storageUsecase, cellRepo, orderRepo, timeoutManager, logger)
+	grpcServer := server.NewGRPCServer(confServer, storageService, storageCallbackService, logger)
+	httpServer := server.NewHTTPServer(confServer, storageService, logger)
 	app := newApp(logger, grpcServer, httpServer)
 	return app, func() {
+		cleanup3()
+		cleanup2()
 		cleanup()
 	}, nil
+}
+
+// wire.go:
+
+func NewDeviceCommandClient(logger log.Logger) (v1.DeviceCommandServiceClient, func(), error) {
+	conn, err := grpc.NewClient("localhost:9001", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, nil, err
+	}
+	cleanup := func() { conn.Close() }
+	return v1.NewDeviceCommandServiceClient(conn), cleanup, nil
 }
