@@ -37,7 +37,8 @@ func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*
 	monitorUsecase := biz.NewMonitorUsecase(connectionEventRepo, deviceRepo, logger)
 	jwtManager := biz.NewDeviceMQTTAuthUsecase(nil, logger)
 	deviceService := service.NewDeviceService(deviceUsecase, inventoryUsecase, monitorUsecase, jwtManager)
-	grpcServer := server.NewGRPCServer(confServer, deviceService, logger)
+	commandService := service.NewDeviceCommandService(inventoryUsecase, deviceUsecase, logger)
+	grpcServer := server.NewGRPCServer(confServer, deviceService, commandService, logger)
 	httpServer := server.NewHTTPServer(confServer, deviceService, logger)
 	app := newApp(logger, grpcServer, httpServer)
 	return app, func() {

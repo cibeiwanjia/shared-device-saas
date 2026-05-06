@@ -9,7 +9,7 @@ import (
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 )
 
-func NewGRPCServer(c *conf.Server, deviceSvc *service.DeviceService, logger log.Logger) *grpc.Server {
+func NewGRPCServer(c *conf.Server, deviceSvc *service.DeviceService, commandSvc *service.DeviceCommandService, logger log.Logger) *grpc.Server {
 	var opts = []grpc.ServerOption{}
 	if c.Grpc.Network != "" {
 		opts = append(opts, grpc.Network(c.Grpc.Network))
@@ -22,5 +22,6 @@ func NewGRPCServer(c *conf.Server, deviceSvc *service.DeviceService, logger log.
 	}
 	srv := grpc.NewServer(opts...)
 	pb.RegisterDeviceServiceServer(srv, deviceSvc)
+	pb.RegisterDeviceCommandServiceServer(srv, commandSvc)
 	return srv
 }
