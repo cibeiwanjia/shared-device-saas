@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"shared-device-saas/app/device/internal/biz"
 	paho "github.com/eclipse/paho.golang/paho"
 	"github.com/go-kratos/kratos/v2/log"
+	"shared-device-saas/app/device/internal/biz"
 )
 
 type MQTTHandler struct {
@@ -72,7 +72,9 @@ func (h *MQTTHandler) HandleClientDisconnected(pub *paho.Publish) {
 	h.log.Infof("device disconnected: clientID=%s, reason=%s", event.ClientID, event.Reason)
 }
 
-func (h *MQTTHandler) RegisterRoutes(mqttClient interface{ RegisterHandler(topic string, handler func(p *paho.Publish)) }) {
+func (h *MQTTHandler) RegisterRoutes(mqttClient interface {
+	RegisterHandler(topic string, handler func(p *paho.Publish))
+}) {
 	mqttClient.RegisterHandler("+/device/+/+/status", h.HandleDeviceStatus)
 	mqttClient.RegisterHandler("$events/client_connected", h.HandleClientConnected)
 	mqttClient.RegisterHandler("$events/client_disconnected", h.HandleClientDisconnected)

@@ -92,7 +92,6 @@ func wireApp(confServer *conf.Server, confData *conf.Data, confStorage *conf.Sto
 	orderRepo := data.NewOrderRepo(dataData, logger)
 	walletRepo := data.NewWalletRepo(dataData, logger)
 	rechargeRepo := data.NewRechargeRepo(dataData, logger)
-	stationRepo := data.NewStationRepo(dataData, logger)
 	inventoryRepo := data.NewInventoryRepo(dataData, logger)
 
 	// Redis + SMS + Amap
@@ -104,6 +103,7 @@ func wireApp(confServer *conf.Server, confData *conf.Data, confStorage *conf.Sto
 	ihuyiClient := data.NewSMSClient(confData, logger)
 	blacklist := data.NewRedisBlacklist(redisClient, logger)
 	amapClient := data.NewAmapClient(confData, logger)
+	stationRepo := data.NewStationRepo(dataData, redisClient, logger)
 
 	// Usecase
 	userUsecase := biz.NewUserUsecase(userRepo, redisClient, ihuyiClient, jwtMgr, logger)

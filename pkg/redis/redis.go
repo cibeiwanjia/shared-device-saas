@@ -96,6 +96,35 @@ func (c *Client) GetClient() *redis.Client {
 }
 
 // ========================================
+// GEO 地理位置操作
+// ========================================
+
+const (
+	StationsGeoKey = "geo:stations" // 站点地理位置集合
+)
+
+// GeoAdd 添加地理位置
+func (c *Client) GeoAdd(ctx context.Context, key string, lng, lat float64, member string) error {
+	return c.client.GeoAdd(ctx, key, &redis.GeoLocation{
+		Longitude: lng,
+		Latitude:  lat,
+		Name:      member,
+	}).Err()
+}
+
+// GeoRadius 按半径搜索附近点（返回成员名 + 距离）
+func (c *Client) GeoRadius(ctx context.Context, key string, lng, lat float64, radius float64, count int64) ([]redis.GeoLocation, error) {
+	return c.client.GeoRadius(ctx, key, lng, lat, &redis.GeoRadiusQuery{
+		Radius:    radius,
+		Unit:      "m",
+		WithDist:  true,
+		WithCoord: false,
+		Sort:      "ASC",
+		Count:     int(count),
+	}).Result()
+}
+
+// ========================================
 // SMS 验证码相关 Key 操作
 // ========================================
 

@@ -56,9 +56,6 @@ config/local.yaml
 config/local.yml
 config/*-local.yaml
 config/*-local.yml
-<<<<<<< HEAD
 
-
-=======
 configs/config.yaml
->>>>>>> dev/wangqinghua
+

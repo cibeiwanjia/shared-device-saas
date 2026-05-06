@@ -246,8 +246,13 @@ func (c *Client) doGet(path string, params url.Values, result interface{}) error
 		return fmt.Errorf("amap read body: %w", err)
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		c.log.Warnf("Amap non-200 response: status=%d body=%s", resp.StatusCode, string(body))
+		return fmt.Errorf("amap http status %d: %s", resp.StatusCode, string(body))
+	}
+
 	if err := json.Unmarshal(body, result); err != nil {
-		c.log.Warnf("Amap response: %s", string(body))
+		c.log.Warnf("Amap response decode failed: %s", string(body))
 		return fmt.Errorf("amap decode: %w", err)
 	}
 
