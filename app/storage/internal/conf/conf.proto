@@ -36,6 +36,13 @@ message Data {
     google.protobuf.Duration read_timeout = 3;
     google.protobuf.Duration write_timeout = 4;
   }
+  message JWT {
+    string access_secret = 1;
+    string refresh_secret = 2;
+    google.protobuf.Duration access_expiry = 3;
+    google.protobuf.Duration refresh_expiry = 4;
+  }
   Database database = 1;
   Redis redis = 2;
+  JWT jwt = 3;
 }

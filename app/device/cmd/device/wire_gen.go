@@ -7,8 +7,12 @@
 package main
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
+	mqtt "shared-device-saas/pkg/mqtt"
 	"shared-device-saas/app/device/internal/biz"
 	"shared-device-saas/app/device/internal/conf"
 	"shared-device-saas/app/device/internal/data"
@@ -20,6 +24,36 @@ import (
 	_ "go.uber.org/automaxprocs"
 )
 
+// newMQTTClient 从 conf.Data.MQTT 配置创建 MQTT 客户端
+func newMQTTClient(c *conf.Data, logger log.Logger) (*mqtt.Client, func(), error) {
+	mqttCfg := c.GetMqtt()
+	if mqttCfg == nil {
+		helper := log.NewHelper(logger)
+		helper.Warn("MQTT config not found, command publishing disabled")
+		return nil, func() {}, nil
+	}
+
+	clientCfg := &mqtt.ClientConfig{
+		Brokers:           []string{mqttCfg.GetBroker()},
+		ClientID:          mqttCfg.GetClientId(),
+		Username:          mqttCfg.GetUsername(),
+		Password:          mqttCfg.GetPassword(),
+		KeepAlive:         uint16(mqttCfg.GetKeepalive()),
+		CleanStart:        mqttCfg.GetCleanStart(),
+		SessionExpiry:     mqttCfg.GetSessionExpiry(),
+	}
+
+	client, err := mqtt.NewClient(context.Background(), clientCfg, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create mqtt client: %w", err)
+	}
+
+	cleanup := func() {
+		client.Close(context.Background())
+	}
+	return client, cleanup, nil
+}
+
 func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
 	dataData, cleanup, err := data.NewData(confData, logger)
 	if err != nil {
@@ -30,6 +64,14 @@ func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*
 		cleanup()
 		return nil, nil, err
 	}
+
+	mqttClient, mqttCleanup, err := newMQTTClient(confData, logger)
+	if err != nil {
+		redisCleanup()
+		cleanup()
+		return nil, nil, err
+	}
+
 	deviceRepo := data.NewDeviceRepo(dataData, logger)
 	connectionEventRepo := data.NewConnectionEventRepo(dataData, logger)
 	deviceUsecase := biz.NewDeviceUsecase(deviceRepo)
@@ -37,11 +79,12 @@ func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*
 	monitorUsecase := biz.NewMonitorUsecase(connectionEventRepo, deviceRepo, logger)
 	jwtManager := biz.NewDeviceMQTTAuthUsecase(nil, logger)
 	deviceService := service.NewDeviceService(deviceUsecase, inventoryUsecase, monitorUsecase, jwtManager)
-	commandService := service.NewDeviceCommandService(inventoryUsecase, deviceUsecase, logger)
+	commandService := service.NewDeviceCommandService(inventoryUsecase, deviceUsecase, mqttClient, logger)
 	grpcServer := server.NewGRPCServer(confServer, deviceService, commandService, logger)
 	httpServer := server.NewHTTPServer(confServer, deviceService, logger)
 	app := newApp(logger, grpcServer, httpServer)
 	return app, func() {
+		mqttCleanup()
 		redisCleanup()
 		cleanup()
 	}, nil

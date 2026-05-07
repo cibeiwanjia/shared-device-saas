@@ -80,7 +80,22 @@ build-all:
 # 运行 user 服务
 .PHONY: run
 run:
-	@go run ./$(USER_SERVICE)
+	@go run ./$(USER_SERVICE) -conf ./app/user/configs
+
+# 运行 device 服务
+.PHONY: run-device
+run-device:
+	@go run ./app/device/cmd/device -conf ./app/device/configs
+
+# 运行 storage 服务
+.PHONY: run-storage
+run-storage:
+	@go run ./app/storage/cmd/storage -conf ./app/storage/configs
+
+# 运行 portal 服务
+.PHONY: run-portal
+run-portal:
+	@go run ./app/portal/cmd/portal -conf ./app/portal/configs
 
 # 代码检查
 .PHONY: vet

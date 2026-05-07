@@ -4,19 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"shared-device-saas/app/storage/internal/conf"
+	"shared-device-saas/pkg/auth"
 	"shared-device-saas/pkg/redis"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
-	"time"
 )
 
 var ProviderSet = wire.NewSet(
 	NewData,
 	NewRedisClient,
+	NewRedisBlacklist,
 	NewCabinetRepo,
 	NewCellRepo,
 	NewOrderRepo,
@@ -99,3 +101,12 @@ func NewRedisClient(c *conf.Data, logger log.Logger) (*redis.Client, func(), err
 
 func (d *Data) DB() *sql.DB        { return d.db }
 func (d *Data) Redis() *redis.Client { return d.redis }
+
+func NewRedisBlacklist(redisClient *redis.Client, logger log.Logger) auth.Blacklist {
+	helper := log.NewHelper(logger)
+	if redisClient == nil {
+		helper.Warn("Redis client not available, token blacklist disabled")
+		return nil
+	}
+	return auth.NewRedisBlacklistAdapter(redisClient)
+}

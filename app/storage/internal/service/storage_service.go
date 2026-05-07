@@ -7,6 +7,7 @@ import (
 
 	pb "shared-device-saas/api/storage/v1"
 	"shared-device-saas/app/storage/internal/biz"
+	"shared-device-saas/pkg/auth"
 
 	"github.com/go-kratos/kratos/v2/log"
 )
@@ -49,8 +50,8 @@ func NewStorageService(
 }
 
 func (s *StorageService) InitiateDelivery(ctx context.Context, req *pb.InitiateDeliveryRequest) (*pb.InitiateDeliveryReply, error) {
-	tenantID := tenantFromContext(ctx)
-	userID := userFromContext(ctx)
+	tenantID := auth.GetTenantID(ctx)
+	userID := auth.GetUserIDInt64(ctx)
 	order, err := s.deliveryIn.InitiateDelivery(ctx, tenantID, userID, req.CabinetId, req.CellType, "")
 	if err != nil {
 		return nil, err
@@ -59,7 +60,7 @@ func (s *StorageService) InitiateDelivery(ctx context.Context, req *pb.InitiateD
 }
 
 func (s *StorageService) Pickup(ctx context.Context, req *pb.PickupRequest) (*pb.PickupReply, error) {
-	tenantID := tenantFromContext(ctx)
+	tenantID := auth.GetTenantID(ctx)
 	orderID, err := s.pickup.Verify(ctx, tenantID, req.PickupCode)
 	if err != nil {
 		return nil, err
@@ -95,7 +96,7 @@ func (s *StorageService) Pickup(ctx context.Context, req *pb.PickupRequest) (*pb
 }
 
 func (s *StorageService) ConfirmPickup(ctx context.Context, req *pb.ConfirmPickupRequest) (*pb.ConfirmPickupReply, error) {
-	tenantID := tenantFromContext(ctx)
+	tenantID := auth.GetTenantID(ctx)
 	orderID, err := s.pickup.Verify(ctx, tenantID, req.PickupCode)
 	if err != nil {
 		return nil, err
@@ -121,8 +122,8 @@ func (s *StorageService) ConfirmPickup(ctx context.Context, req *pb.ConfirmPicku
 }
 
 func (s *StorageService) InitiateShipment(ctx context.Context, req *pb.InitiateShipmentRequest) (*pb.InitiateShipmentReply, error) {
-	tenantID := tenantFromContext(ctx)
-	userID := userFromContext(ctx)
+	tenantID := auth.GetTenantID(ctx)
+	userID := auth.GetUserIDInt64(ctx)
 	order, err := s.deliveryOut.InitiateShipment(ctx, tenantID, userID, req.CabinetId, req.CellType)
 	if err != nil {
 		return nil, err
@@ -131,8 +132,8 @@ func (s *StorageService) InitiateShipment(ctx context.Context, req *pb.InitiateS
 }
 
 func (s *StorageService) InitiateStorage(ctx context.Context, req *pb.InitiateStorageRequest) (*pb.InitiateStorageReply, error) {
-	tenantID := tenantFromContext(ctx)
-	userID := userFromContext(ctx)
+	tenantID := auth.GetTenantID(ctx)
+	userID := auth.GetUserIDInt64(ctx)
 	order, err := s.storageUc.InitiateStorage(ctx, tenantID, userID, req.CabinetId, req.CellType)
 	if err != nil {
 		return nil, err
@@ -214,8 +215,8 @@ func (s *StorageService) GetOrder(ctx context.Context, req *pb.GetOrderRequest) 
 }
 
 func (s *StorageService) ListMyOrders(ctx context.Context, req *pb.ListMyOrdersRequest) (*pb.ListMyOrdersReply, error) {
-	tenantID := tenantFromContext(ctx)
-	userID := userFromContext(ctx)
+	tenantID := auth.GetTenantID(ctx)
+	userID := auth.GetUserIDInt64(ctx)
 	orders, total, err := s.orderRepo.ListByUser(ctx, tenantID, userID, req.OrderType, req.Page, req.PageSize)
 	if err != nil {
 		return nil, err
@@ -235,7 +236,7 @@ func (s *StorageService) ListMyOrders(ctx context.Context, req *pb.ListMyOrdersR
 }
 
 func (s *StorageService) ListCabinets(ctx context.Context, req *pb.ListCabinetsRequest) (*pb.ListCabinetsReply, error) {
-	tenantID := tenantFromContext(ctx)
+	tenantID := auth.GetTenantID(ctx)
 	cabinets, total, err := s.cabinetRepo.ListByTenant(ctx, tenantID, req.Status, req.Page, req.PageSize)
 	if err != nil {
 		return nil, err
@@ -290,9 +291,6 @@ func (s *StorageService) GetCabinetDetail(ctx context.Context, req *pb.GetCabine
 func (s *StorageService) ForceOpenCell(ctx context.Context, req *pb.ForceOpenCellRequest) (*pb.ForceOpenCellReply, error) {
 	return &pb.ForceOpenCellReply{Ok: true}, nil
 }
-
-func tenantFromContext(_ context.Context) int64 { return 1 }
-func userFromContext(_ context.Context) int64   { return 1 }
 
 func formatTime(t time.Time) string {
 	if t.IsZero() {

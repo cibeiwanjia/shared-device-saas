@@ -7,11 +7,16 @@
 package main
 
 import (
+	"context"
+	"time"
+
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"shared-device-saas/api/device/v1"
+	mqttpkg "shared-device-saas/pkg/mqtt"
+	"shared-device-saas/pkg/auth"
 	"shared-device-saas/app/storage/internal/biz"
 	"shared-device-saas/app/storage/internal/conf"
 	"shared-device-saas/app/storage/internal/data"
@@ -23,9 +28,50 @@ import (
 	_ "go.uber.org/automaxprocs"
 )
 
-// Injectors from wire.go:
+func newJWTManager(c *conf.Data) *auth.JWTManager {
+	jwtCfg := c.GetJwt()
+	if jwtCfg == nil {
+		panic("jwt config not found in storage service")
+	}
+	accessExpiry := 7200 * time.Second
+	if jwtCfg.GetAccessExpiry() != nil {
+		accessExpiry = jwtCfg.GetAccessExpiry().AsDuration()
+	}
+	refreshExpiry := 604800 * time.Second
+	if jwtCfg.GetRefreshExpiry() != nil {
+		refreshExpiry = jwtCfg.GetRefreshExpiry().AsDuration()
+	}
+	return auth.NewJWTManager(
+		jwtCfg.GetAccessSecret(),
+		jwtCfg.GetRefreshSecret(),
+		accessExpiry,
+		refreshExpiry,
+	)
+}
+
+func newMQTTClient(logger log.Logger) (*mqttpkg.Client, func(), error) {
+	cfg := &mqttpkg.ClientConfig{
+		Brokers:      []string{"tcp://127.0.0.1:1883"},
+		ClientID:     "storage-service",
+		KeepAlive:    60,
+		CleanStart:   false,
+		SessionExpiry: 3600,
+	}
+
+	client, err := mqttpkg.NewClient(context.Background(), cfg, logger)
+	if err != nil {
+		helper := log.NewHelper(logger)
+		helper.Warnf("MQTT connection failed, events will be logged only: %v", err)
+		return nil, func() {}, nil
+	}
+
+	cleanup := func() { client.Close(context.Background()) }
+	return client, cleanup, nil
+}
 
 func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
+	jwtMgr := newJWTManager(confData)
+
 	orderFSM := biz.NewOrderFSM()
 	dataData, cleanup, err := data.NewData(confData, logger)
 	if err != nil {
@@ -35,12 +81,13 @@ func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*
 	cellAllocator := biz.NewCellAllocator(cellRepo, logger)
 	pricingRepo := data.NewPricingRepo(dataData, logger)
 	pricingEngine := biz.NewPricingEngine(pricingRepo)
-	client, cleanup2, err := data.NewRedisClient(confData, logger)
+	redisClient, cleanup2, err := data.NewRedisClient(confData, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	pickupCodeManager := biz.NewPickupCodeManager(client, logger)
+	blacklist := data.NewRedisBlacklist(redisClient, logger)
+	pickupCodeManager := biz.NewPickupCodeManager(redisClient, logger)
 	deviceCommandServiceClient, cleanup3, err := NewDeviceCommandClient(logger)
 	if err != nil {
 		cleanup2()
@@ -48,7 +95,10 @@ func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*
 		return nil, nil, err
 	}
 	deviceCommander := biz.NewDeviceCommander(deviceCommandServiceClient, logger)
-	eventPublisher := biz.NewNoOpEventPublisher(logger)
+
+	mqttClient, mqttCleanup, _ := newMQTTClient(logger)
+	eventPublisher := biz.NewMQTTEventPublisher(mqttClient, logger)
+
 	orderRepo := data.NewOrderRepo(dataData, logger)
 	timeoutManager := biz.NewTimeoutManager(cellRepo, deviceCommander, cellAllocator, eventPublisher, orderRepo, logger)
 	cabinetRepo := data.NewCabinetRepo(dataData, logger)
@@ -58,9 +108,10 @@ func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*
 	storageService := service.NewStorageService(deliveryInUsecase, deliveryOutUsecase, storageUsecase, pricingEngine, pickupCodeManager, cellAllocator, orderRepo, cellRepo, cabinetRepo, timeoutManager, logger)
 	storageCallbackService := service.NewStorageCallbackService(deliveryInUsecase, deliveryOutUsecase, storageUsecase, cellRepo, orderRepo, timeoutManager, logger)
 	grpcServer := server.NewGRPCServer(confServer, storageService, storageCallbackService, logger)
-	httpServer := server.NewHTTPServer(confServer, storageService, logger)
+	httpServer := server.NewHTTPServer(confServer, storageService, jwtMgr, blacklist, logger)
 	app := newApp(logger, grpcServer, httpServer)
 	return app, func() {
+		mqttCleanup()
 		cleanup3()
 		cleanup2()
 		cleanup()

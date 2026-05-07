@@ -13,5 +13,5 @@ var ProviderSet = wire.NewSet(
 	NewDeliveryInUsecase,
 	NewDeliveryOutUsecase,
 	NewStorageUsecase,
-	NewNoOpEventPublisher,
+	NewMQTTEventPublisher,
 )

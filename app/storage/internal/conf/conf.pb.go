@@ -7,6 +7,7 @@
 package conf
 
 import (
+	fmt "fmt"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -138,6 +139,7 @@ type Data struct {
 
 	Database *Data_Database `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	Redis    *Data_Redis    `protobuf:"bytes,2,opt,name=redis,proto3" json:"redis,omitempty"`
+	Jwt      *Data_JWT      `protobuf:"bytes,3,opt,name=jwt,proto3" json:"jwt,omitempty"`
 }
 
 func (x *Data) Reset() {
@@ -182,6 +184,57 @@ func (x *Data) GetDatabase() *Data_Database {
 func (x *Data) GetRedis() *Data_Redis {
 	if x != nil {
 		return x.Redis
+	}
+	return nil
+}
+
+func (x *Data) GetJwt() *Data_JWT {
+	if x != nil {
+		return x.Jwt
+	}
+	return nil
+}
+
+type Data_JWT struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	AccessSecret  string               `protobuf:"bytes,1,opt,name=access_secret,json=accessSecret,proto3" json:"access_secret,omitempty"`
+	RefreshSecret string               `protobuf:"bytes,2,opt,name=refresh_secret,json=refreshSecret,proto3" json:"refresh_secret,omitempty"`
+	AccessExpiry  *durationpb.Duration `protobuf:"bytes,3,opt,name=access_expiry,json=accessExpiry,proto3" json:"access_expiry,omitempty"`
+	RefreshExpiry *durationpb.Duration `protobuf:"bytes,4,opt,name=refresh_expiry,json=refreshExpiry,proto3" json:"refresh_expiry,omitempty"`
+}
+
+func (x *Data_JWT) Reset()         { *x = Data_JWT{} }
+func (x *Data_JWT) String() string { return fmt.Sprintf("%+v", *x) }
+func (*Data_JWT) ProtoMessage()    {}
+func (*Data_JWT) Descriptor() ([]byte, []int) { return file_conf_conf_proto_rawDescGZIP(), []int{2, 2} }
+
+func (x *Data_JWT) GetAccessSecret() string {
+	if x != nil {
+		return x.AccessSecret
+	}
+	return ""
+}
+
+func (x *Data_JWT) GetRefreshSecret() string {
+	if x != nil {
+		return x.RefreshSecret
+	}
+	return ""
+}
+
+func (x *Data_JWT) GetAccessExpiry() *durationpb.Duration {
+	if x != nil {
+		return x.AccessExpiry
+	}
+	return nil
+}
+
+func (x *Data_JWT) GetRefreshExpiry() *durationpb.Duration {
+	if x != nil {
+		return x.RefreshExpiry
 	}
 	return nil
 }

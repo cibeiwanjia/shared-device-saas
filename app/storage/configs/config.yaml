@@ -13,3 +13,8 @@ data:
     addr: 127.0.0.1:6379
     read_timeout: 0.2s
     write_timeout: 0.2s
+  jwt:
+    access_secret: "shared-device-saas-access-secret-2024"
+    refresh_secret: "shared-device-saas-refresh-secret-2024"
+    access_expiry: "7200s"
+    refresh_expiry: "604800s"
