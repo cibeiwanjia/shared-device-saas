@@ -7,13 +7,13 @@
 package main
 
 import (
+	"github.com/go-kratos/kratos/v2"
+	"github.com/go-kratos/kratos/v2/log"
 	"shared-device-saas/app/storage/internal/biz"
 	"shared-device-saas/app/storage/internal/conf"
 	"shared-device-saas/app/storage/internal/data"
 	"shared-device-saas/app/storage/internal/server"
 	"shared-device-saas/app/storage/internal/service"
-	"github.com/go-kratos/kratos/v2"
-	"github.com/go-kratos/kratos/v2/log"
 )
 
 import (
@@ -24,17 +24,44 @@ import (
 
 // wireApp init kratos application.
 func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
-	dataData, cleanup, err := data.NewData(confData)
+	dataData, cleanup, err := data.NewData(confData, logger)
 	if err != nil {
 		return nil, nil, err
 	}
-	greeterRepo := data.NewGreeterRepo(dataData, logger)
-	greeterUsecase := biz.NewGreeterUsecase(greeterRepo)
-	greeterService := service.NewGreeterService(greeterUsecase)
-	grpcServer := server.NewGRPCServer(confServer, greeterService, logger)
-	httpServer := server.NewHTTPServer(confServer, greeterService, logger)
-	app := newApp(logger, grpcServer, httpServer)
+	client, cleanup2, err := data.NewRedisClient(confData, logger)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	expressRepo := data.NewExpressRepo(dataData, client, confData, logger)
+	verificationLogRepo := data.NewVerificationLogRepo(dataData, logger)
+	courierRepo := data.NewCourierRepo(dataData, logger)
+	zoneRepo := data.NewZoneRepo(dataData, logger)
+	stationRepo := data.NewStationRepo(dataData, logger)
+	cabinetRepo := data.NewCabinetRepo(dataData, logger)
+	cabinetGridRepo := data.NewCabinetGridRepo(dataData, logger)
+	dispatchService := biz.NewDispatchService(courierRepo, zoneRepo, logger)
+	userClient, cleanup3, err := server.NewUserClient(confData, logger)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	expressUsecase := biz.NewExpressUsecase(expressRepo, verificationLogRepo, courierRepo, zoneRepo, stationRepo, cabinetRepo, cabinetGridRepo, dispatchService, userClient, logger)
+	courierUsecase := biz.NewCourierUsecase(courierRepo, zoneRepo, userClient, logger)
+	expressService := service.NewExpressService(expressUsecase, courierUsecase)
+	courierService := service.NewCourierService(courierUsecase, logger)
+	stationService := service.NewStationService(stationRepo)
+	cabinetService := service.NewCabinetService(cabinetRepo, cabinetGridRepo)
+	grpcServer := server.NewGRPCServer(confServer, expressService, courierService, stationService, cabinetService, logger)
+	jwtManager := server.NewJWTManager(confData, logger)
+	blacklist := data.NewRedisBlacklist(client, logger)
+	httpServer := server.NewHTTPServer(confServer, expressService, courierService, stationService, cabinetService, jwtManager, blacklist, logger)
+	timeoutHandler := biz.NewTimeoutHandler(expressRepo, courierRepo, logger)
+	app := newApp(logger, grpcServer, httpServer, timeoutHandler)
 	return app, func() {
+		cleanup3()
+		cleanup2()
 		cleanup()
 	}, nil
 }

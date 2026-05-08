@@ -1,7 +1,7 @@
 package server
 
 import (
-	v1 "shared-device-saas/api/user/v1"
+	v1 "shared-device-saas/api/storage/v1"
 	"shared-device-saas/app/storage/internal/conf"
 	"shared-device-saas/app/storage/internal/service"
 
@@ -11,7 +11,7 @@ import (
 )
 
 // NewGRPCServer new a gRPC server.
-func NewGRPCServer(c *conf.Server, greeter *service.GreeterService, logger log.Logger) *grpc.Server {
+func NewGRPCServer(c *conf.Server, express *service.ExpressService, courier *service.CourierService, station *service.StationService, cabinet *service.CabinetService, logger log.Logger) *grpc.Server {
 	var opts = []grpc.ServerOption{
 		grpc.Middleware(
 			recovery.Recovery(),
@@ -27,6 +27,10 @@ func NewGRPCServer(c *conf.Server, greeter *service.GreeterService, logger log.L
 		opts = append(opts, grpc.Timeout(c.Grpc.Timeout.AsDuration()))
 	}
 	srv := grpc.NewServer(opts...)
-	v1.RegisterGreeterServer(srv, greeter)
+	v1.RegisterExpressServiceServer(srv, express)
+	v1.RegisterCourierServiceServer(srv, courier)
+	// Phase 3 新增
+	v1.RegisterStationServiceServer(srv, station)
+	v1.RegisterCabinetServiceServer(srv, cabinet)
 	return srv
 }

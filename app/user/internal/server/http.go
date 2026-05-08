@@ -29,13 +29,15 @@ func NewHTTPServer(
 			// 选择性应用 JWT 中间件（只对需要认证的接口）
 			auth.OperationSelector(
 				auth.JWTMiddleware(jwtMgr, blacklist),
-				// 需要认证的接口列表
-				v1.OperationUserServiceGetMe,
-				v1.OperationUserServiceGetUser,
-				v1.OperationUserServiceUpdateUser,
+				// 需要认证的接口列表（普通用户操作自己 + 管理员操作他人）
+				v1.OperationUserServiceGetUserMe,      // GET /v1/user/me
+				v1.OperationUserServiceUpdateUserMe,   // PATCH /v1/user/me
+				v1.OperationUserServiceGetUserById,    // GET /v1/user/{id}（管理员）
+				v1.OperationUserServiceUpdateUserById, // PATCH /v1/user/{id}（管理员）
+				v1.OperationUserServiceUpdateProfile,  // PATCH /v1/user/profile
 				v1.OperationUserServiceLogout,
 			),
-			// 权限检查中间件（针对 GetUser 和 UpdateUser）
+			// 权限检查中间件（管理员操作他人需要 admin 权限）
 			auth.PermissionMiddleware(),
 		),
 		// 添加统一返回结构编码器

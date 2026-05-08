@@ -57,4 +57,7 @@ config/local.yml
 config/*-local.yaml
 config/*-local.yml
 
+.gitignore
+go.mod
+go.sum
 

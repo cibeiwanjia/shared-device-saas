@@ -12,7 +12,7 @@ import (
 )
 
 // PermissionChecker 权限检查器
-// 用于 GetUser 和 UpdateUser 接口的权限检查
+// 用于 GetUserById 和 UpdateUserById 接口的权限检查（管理员操作他人）
 type PermissionChecker struct{}
 
 // NewPermissionChecker 创建权限检查器
@@ -21,27 +21,22 @@ func NewPermissionChecker() *PermissionChecker {
 }
 
 // CheckUserPermission 检查用户是否有权限操作指定用户
-// 规则：admin 可以操作任何用户，普通用户只能操作自己
+// 规则：只有 admin 可以操作他人（使用 GetUserById/UpdateUserById）
+// 普通用户应该使用 GetUserMe/UpdateUserMe 操作自己
 func (p *PermissionChecker) CheckUserPermission(ctx context.Context, targetUserID string) error {
 	// 从 Context 获取当前用户信息
-	ctxUserID := GetUserID(ctx) // 现在是 string 类型（MongoDB ObjectID.Hex()）
 	ctxRoles := GetRoles(ctx)
 
-	// 权限判断
-	// 1. admin 角色 → 允许操作任何用户
+	// 只有 admin 角色 → 允许操作他人
 	if hasRole(ctxRoles, []string{"admin"}) {
 		return nil
 	}
 
-	// 2. 普通用户 → 只能操作自己
-	if ctxUserID != targetUserID {
-		return errors.New(403, v1.ErrorReason_PERMISSION_DENIED.String(), "权限不足")
-	}
-
-	return nil
+	// 普通用户 → 不允许操作他人（应该用 GetUserMe/UpdateUserMe）
+	return errors.New(403, v1.ErrorReason_PERMISSION_DENIED.String(), "权限不足，请使用 /v1/user/me 接口")
 }
 
-// PermissionMiddleware 权限检查中间件（仅针对 GetUser 和 UpdateUser）
+// PermissionMiddleware 权限检查中间件（仅针对 GetUserById 和 UpdateUserById）
 // 使用 OperationSelector 确保只在特定接口上运行
 // 注意：此中间件必须在 JWTMiddleware 之后使用
 func PermissionMiddleware() middleware.Middleware {
@@ -50,8 +45,8 @@ func PermissionMiddleware() middleware.Middleware {
 			// 检查是否是需要权限验证的 Operation
 			if tr, ok := transport.FromServerContext(ctx); ok {
 				operation := tr.Operation()
-				// 只对 GetUser 和 UpdateUser 进行权限检查
-				if operation != v1.OperationUserServiceGetUser && operation != v1.OperationUserServiceUpdateUser {
+				// 只对 GetUserById 和 UpdateUserById 进行权限检查（管理员操作他人）
+				if operation != v1.OperationUserServiceGetUserById && operation != v1.OperationUserServiceUpdateUserById {
 					return handler(ctx, req)
 				}
 			}
@@ -59,18 +54,18 @@ func PermissionMiddleware() middleware.Middleware {
 			// 从请求中提取 targetUserID
 			var targetUserID string
 			switch r := req.(type) {
-			case *v1.GetUserRequest:
+			case *v1.GetUserByIdRequest:
 				targetUserID = r.Id
-			case *v1.UpdateUserRequest:
+			case *v1.UpdateUserByIdRequest:
 				targetUserID = r.Id
 			default:
 				return handler(ctx, req)
 			}
 
-			// 执行权限检查
+			// 执行权限检查（只有 admin 可以操作他人）
 			checker := NewPermissionChecker()
 			if err := checker.CheckUserPermission(ctx, targetUserID); err != nil {
-				return nil, errx.Forbidden("权限不足，无法操作该用户")
+				return nil, errx.Forbidden("权限不足，请使用 /v1/user/me 接口")
 			}
 
 			return handler(ctx, req)

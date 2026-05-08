@@ -19,15 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserService_Register_FullMethodName     = "/api.user.v1.UserService/Register"
-	UserService_Login_FullMethodName        = "/api.user.v1.UserService/Login"
-	UserService_SendSmsCode_FullMethodName  = "/api.user.v1.UserService/SendSmsCode"
-	UserService_LoginBySms_FullMethodName   = "/api.user.v1.UserService/LoginBySms"
-	UserService_RefreshToken_FullMethodName = "/api.user.v1.UserService/RefreshToken"
-	UserService_GetMe_FullMethodName        = "/api.user.v1.UserService/GetMe"
-	UserService_GetUser_FullMethodName      = "/api.user.v1.UserService/GetUser"
-	UserService_UpdateUser_FullMethodName   = "/api.user.v1.UserService/UpdateUser"
-	UserService_Logout_FullMethodName       = "/api.user.v1.UserService/Logout"
+	UserService_Register_FullMethodName        = "/api.user.v1.UserService/Register"
+	UserService_Login_FullMethodName           = "/api.user.v1.UserService/Login"
+	UserService_SendSmsCode_FullMethodName     = "/api.user.v1.UserService/SendSmsCode"
+	UserService_LoginBySms_FullMethodName      = "/api.user.v1.UserService/LoginBySms"
+	UserService_RefreshToken_FullMethodName    = "/api.user.v1.UserService/RefreshToken"
+	UserService_GetUserMe_FullMethodName       = "/api.user.v1.UserService/GetUserMe"
+	UserService_UpdateUserMe_FullMethodName    = "/api.user.v1.UserService/UpdateUserMe"
+	UserService_GetUserById_FullMethodName     = "/api.user.v1.UserService/GetUserById"
+	UserService_UpdateUserById_FullMethodName  = "/api.user.v1.UserService/UpdateUserById"
+	UserService_UpdateProfile_FullMethodName   = "/api.user.v1.UserService/UpdateProfile"
+	UserService_Logout_FullMethodName          = "/api.user.v1.UserService/Logout"
+	UserService_InternalGetUser_FullMethodName = "/api.user.v1.UserService/InternalGetUser"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -36,7 +39,7 @@ const (
 //
 // 用户服务
 type UserServiceClient interface {
-	// 注册（手机号 + 密码）
+	// 注册（手机号 + 验证码 + 密码）
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterReply, error)
 	// 登录（账号 + 密码）
 	Login(ctx context.Context, in *LoginByPwdRequest, opts ...grpc.CallOption) (*LoginReply, error)
@@ -46,14 +49,20 @@ type UserServiceClient interface {
 	LoginBySms(ctx context.Context, in *LoginBySmsRequest, opts ...grpc.CallOption) (*LoginReply, error)
 	// 刷新 Token
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*LoginReply, error)
-	// 获取当前登录用户信息（不需要传id，从Token解析）
-	GetMe(ctx context.Context, in *GetMeRequest, opts ...grpc.CallOption) (*GetMeReply, error)
-	// 获取用户信息（需要权限检查）
-	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserReply, error)
-	// 更新用户信息
-	UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*UpdateUserReply, error)
+	// 获取当前登录用户信息（普通用户操作自己，从Token解析）
+	GetUserMe(ctx context.Context, in *GetUserMeRequest, opts ...grpc.CallOption) (*GetUserMeReply, error)
+	// 部分更新当前登录用户信息（普通用户修改自己，从Token解析）
+	UpdateUserMe(ctx context.Context, in *UpdateUserMeRequest, opts ...grpc.CallOption) (*UpdateUserMeReply, error)
+	// 获取指定用户信息（管理员操作他人，需要权限检查）
+	GetUserById(ctx context.Context, in *GetUserByIdRequest, opts ...grpc.CallOption) (*GetUserByIdReply, error)
+	// 部分更新指定用户信息（管理员操作他人，需要权限检查）
+	UpdateUserById(ctx context.Context, in *UpdateUserByIdRequest, opts ...grpc.CallOption) (*UpdateUserByIdReply, error)
+	// 部分更新个人信息（邮箱等，从Token解析）
+	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateProfileReply, error)
 	// 退出登录
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutReply, error)
+	// 内部接口：获取用户真实信息（仅服务间调用，返回真实手机号）
+	InternalGetUser(ctx context.Context, in *InternalGetUserRequest, opts ...grpc.CallOption) (*InternalGetUserReply, error)
 }
 
 type userServiceClient struct {
@@ -114,30 +123,50 @@ func (c *userServiceClient) RefreshToken(ctx context.Context, in *RefreshTokenRe
 	return out, nil
 }
 
-func (c *userServiceClient) GetMe(ctx context.Context, in *GetMeRequest, opts ...grpc.CallOption) (*GetMeReply, error) {
+func (c *userServiceClient) GetUserMe(ctx context.Context, in *GetUserMeRequest, opts ...grpc.CallOption) (*GetUserMeReply, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetMeReply)
-	err := c.cc.Invoke(ctx, UserService_GetMe_FullMethodName, in, out, cOpts...)
+	out := new(GetUserMeReply)
+	err := c.cc.Invoke(ctx, UserService_GetUserMe_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *userServiceClient) GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserReply, error) {
+func (c *userServiceClient) UpdateUserMe(ctx context.Context, in *UpdateUserMeRequest, opts ...grpc.CallOption) (*UpdateUserMeReply, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetUserReply)
-	err := c.cc.Invoke(ctx, UserService_GetUser_FullMethodName, in, out, cOpts...)
+	out := new(UpdateUserMeReply)
+	err := c.cc.Invoke(ctx, UserService_UpdateUserMe_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *userServiceClient) UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*UpdateUserReply, error) {
+func (c *userServiceClient) GetUserById(ctx context.Context, in *GetUserByIdRequest, opts ...grpc.CallOption) (*GetUserByIdReply, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(UpdateUserReply)
-	err := c.cc.Invoke(ctx, UserService_UpdateUser_FullMethodName, in, out, cOpts...)
+	out := new(GetUserByIdReply)
+	err := c.cc.Invoke(ctx, UserService_GetUserById_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) UpdateUserById(ctx context.Context, in *UpdateUserByIdRequest, opts ...grpc.CallOption) (*UpdateUserByIdReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateUserByIdReply)
+	err := c.cc.Invoke(ctx, UserService_UpdateUserById_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateProfileReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateProfileReply)
+	err := c.cc.Invoke(ctx, UserService_UpdateProfile_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -154,13 +183,23 @@ func (c *userServiceClient) Logout(ctx context.Context, in *LogoutRequest, opts 
 	return out, nil
 }
 
+func (c *userServiceClient) InternalGetUser(ctx context.Context, in *InternalGetUserRequest, opts ...grpc.CallOption) (*InternalGetUserReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InternalGetUserReply)
+	err := c.cc.Invoke(ctx, UserService_InternalGetUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
 //
 // 用户服务
 type UserServiceServer interface {
-	// 注册（手机号 + 密码）
+	// 注册（手机号 + 验证码 + 密码）
 	Register(context.Context, *RegisterRequest) (*RegisterReply, error)
 	// 登录（账号 + 密码）
 	Login(context.Context, *LoginByPwdRequest) (*LoginReply, error)
@@ -170,14 +209,20 @@ type UserServiceServer interface {
 	LoginBySms(context.Context, *LoginBySmsRequest) (*LoginReply, error)
 	// 刷新 Token
 	RefreshToken(context.Context, *RefreshTokenRequest) (*LoginReply, error)
-	// 获取当前登录用户信息（不需要传id，从Token解析）
-	GetMe(context.Context, *GetMeRequest) (*GetMeReply, error)
-	// 获取用户信息（需要权限检查）
-	GetUser(context.Context, *GetUserRequest) (*GetUserReply, error)
-	// 更新用户信息
-	UpdateUser(context.Context, *UpdateUserRequest) (*UpdateUserReply, error)
+	// 获取当前登录用户信息（普通用户操作自己，从Token解析）
+	GetUserMe(context.Context, *GetUserMeRequest) (*GetUserMeReply, error)
+	// 部分更新当前登录用户信息（普通用户修改自己，从Token解析）
+	UpdateUserMe(context.Context, *UpdateUserMeRequest) (*UpdateUserMeReply, error)
+	// 获取指定用户信息（管理员操作他人，需要权限检查）
+	GetUserById(context.Context, *GetUserByIdRequest) (*GetUserByIdReply, error)
+	// 部分更新指定用户信息（管理员操作他人，需要权限检查）
+	UpdateUserById(context.Context, *UpdateUserByIdRequest) (*UpdateUserByIdReply, error)
+	// 部分更新个人信息（邮箱等，从Token解析）
+	UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateProfileReply, error)
 	// 退出登录
 	Logout(context.Context, *LogoutRequest) (*LogoutReply, error)
+	// 内部接口：获取用户真实信息（仅服务间调用，返回真实手机号）
+	InternalGetUser(context.Context, *InternalGetUserRequest) (*InternalGetUserReply, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -203,17 +248,26 @@ func (UnimplementedUserServiceServer) LoginBySms(context.Context, *LoginBySmsReq
 func (UnimplementedUserServiceServer) RefreshToken(context.Context, *RefreshTokenRequest) (*LoginReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method RefreshToken not implemented")
 }
-func (UnimplementedUserServiceServer) GetMe(context.Context, *GetMeRequest) (*GetMeReply, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetMe not implemented")
+func (UnimplementedUserServiceServer) GetUserMe(context.Context, *GetUserMeRequest) (*GetUserMeReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserMe not implemented")
 }
-func (UnimplementedUserServiceServer) GetUser(context.Context, *GetUserRequest) (*GetUserReply, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetUser not implemented")
+func (UnimplementedUserServiceServer) UpdateUserMe(context.Context, *UpdateUserMeRequest) (*UpdateUserMeReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateUserMe not implemented")
 }
-func (UnimplementedUserServiceServer) UpdateUser(context.Context, *UpdateUserRequest) (*UpdateUserReply, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateUser not implemented")
+func (UnimplementedUserServiceServer) GetUserById(context.Context, *GetUserByIdRequest) (*GetUserByIdReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserById not implemented")
+}
+func (UnimplementedUserServiceServer) UpdateUserById(context.Context, *UpdateUserByIdRequest) (*UpdateUserByIdReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateUserById not implemented")
+}
+func (UnimplementedUserServiceServer) UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateProfileReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateProfile not implemented")
 }
 func (UnimplementedUserServiceServer) Logout(context.Context, *LogoutRequest) (*LogoutReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method Logout not implemented")
+}
+func (UnimplementedUserServiceServer) InternalGetUser(context.Context, *InternalGetUserRequest) (*InternalGetUserReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method InternalGetUser not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -326,56 +380,92 @@ func _UserService_RefreshToken_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UserService_GetMe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetMeRequest)
+func _UserService_GetUserMe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserMeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServiceServer).GetMe(ctx, in)
+		return srv.(UserServiceServer).GetUserMe(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserService_GetMe_FullMethodName,
+		FullMethod: UserService_GetUserMe_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).GetMe(ctx, req.(*GetMeRequest))
+		return srv.(UserServiceServer).GetUserMe(ctx, req.(*GetUserMeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UserService_GetUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetUserRequest)
+func _UserService_UpdateUserMe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUserMeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServiceServer).GetUser(ctx, in)
+		return srv.(UserServiceServer).UpdateUserMe(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserService_GetUser_FullMethodName,
+		FullMethod: UserService_UpdateUserMe_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).GetUser(ctx, req.(*GetUserRequest))
+		return srv.(UserServiceServer).UpdateUserMe(ctx, req.(*UpdateUserMeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UserService_UpdateUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateUserRequest)
+func _UserService_GetUserById_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserByIdRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServiceServer).UpdateUser(ctx, in)
+		return srv.(UserServiceServer).GetUserById(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserService_UpdateUser_FullMethodName,
+		FullMethod: UserService_GetUserById_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).UpdateUser(ctx, req.(*UpdateUserRequest))
+		return srv.(UserServiceServer).GetUserById(ctx, req.(*GetUserByIdRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_UpdateUserById_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUserByIdRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).UpdateUserById(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_UpdateUserById_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).UpdateUserById(ctx, req.(*UpdateUserByIdRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_UpdateProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).UpdateProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_UpdateProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).UpdateProfile(ctx, req.(*UpdateProfileRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -394,6 +484,24 @@ func _UserService_Logout_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(UserServiceServer).Logout(ctx, req.(*LogoutRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_InternalGetUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InternalGetUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).InternalGetUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_InternalGetUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).InternalGetUser(ctx, req.(*InternalGetUserRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -426,20 +534,32 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UserService_RefreshToken_Handler,
 		},
 		{
-			MethodName: "GetMe",
-			Handler:    _UserService_GetMe_Handler,
+			MethodName: "GetUserMe",
+			Handler:    _UserService_GetUserMe_Handler,
 		},
 		{
-			MethodName: "GetUser",
-			Handler:    _UserService_GetUser_Handler,
+			MethodName: "UpdateUserMe",
+			Handler:    _UserService_UpdateUserMe_Handler,
 		},
 		{
-			MethodName: "UpdateUser",
-			Handler:    _UserService_UpdateUser_Handler,
+			MethodName: "GetUserById",
+			Handler:    _UserService_GetUserById_Handler,
+		},
+		{
+			MethodName: "UpdateUserById",
+			Handler:    _UserService_UpdateUserById_Handler,
+		},
+		{
+			MethodName: "UpdateProfile",
+			Handler:    _UserService_UpdateProfile_Handler,
 		},
 		{
 			MethodName: "Logout",
 			Handler:    _UserService_Logout_Handler,
+		},
+		{
+			MethodName: "InternalGetUser",
+			Handler:    _UserService_InternalGetUser_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

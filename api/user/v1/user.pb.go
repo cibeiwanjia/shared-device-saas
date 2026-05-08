@@ -26,31 +26,33 @@ const (
 type ErrorReason int32
 
 const (
-	ErrorReason_USER_NOT_FOUND      ErrorReason = 0 // 用户不存在
-	ErrorReason_USER_ALREADY_EXISTS ErrorReason = 1 // 用户已存在
-	ErrorReason_INVALID_PASSWORD    ErrorReason = 2 // 密码错误
-	ErrorReason_INVALID_TOKEN       ErrorReason = 3 // 令牌无效
-	ErrorReason_USER_DISABLED       ErrorReason = 4 // 用户已禁用
-	ErrorReason_SMS_CODE_INVALID    ErrorReason = 5 // 验证码无效
-	ErrorReason_SMS_CODE_EXPIRED    ErrorReason = 6 // 验证码过期
-	ErrorReason_SMS_SEND_LIMIT      ErrorReason = 7 // 短信发送频率限制
-	ErrorReason_PASSWORD_LOCKED     ErrorReason = 8 // 密码错误次数过多被锁定
-	ErrorReason_PERMISSION_DENIED   ErrorReason = 9 // 权限不足（无权操作该用户）
+	ErrorReason_USER_NOT_FOUND      ErrorReason = 0  // 用户不存在
+	ErrorReason_USER_ALREADY_EXISTS ErrorReason = 1  // 用户已存在
+	ErrorReason_INVALID_PASSWORD    ErrorReason = 2  // 密码错误
+	ErrorReason_INVALID_TOKEN       ErrorReason = 3  // 令牌无效
+	ErrorReason_USER_DISABLED       ErrorReason = 4  // 用户已禁用
+	ErrorReason_SMS_CODE_INVALID    ErrorReason = 5  // 验证码无效
+	ErrorReason_SMS_CODE_EXPIRED    ErrorReason = 6  // 验证码过期
+	ErrorReason_SMS_SEND_LIMIT      ErrorReason = 7  // 短信发送频率限制
+	ErrorReason_PASSWORD_LOCKED     ErrorReason = 8  // 密码错误次数过多被锁定
+	ErrorReason_PERMISSION_DENIED   ErrorReason = 9  // 权限不足（无权操作该用户）
+	ErrorReason_PASSWORD_NOT_MATCH  ErrorReason = 10 // 两次密码不一致
 )
 
 // Enum value maps for ErrorReason.
 var (
 	ErrorReason_name = map[int32]string{
-		0: "USER_NOT_FOUND",
-		1: "USER_ALREADY_EXISTS",
-		2: "INVALID_PASSWORD",
-		3: "INVALID_TOKEN",
-		4: "USER_DISABLED",
-		5: "SMS_CODE_INVALID",
-		6: "SMS_CODE_EXPIRED",
-		7: "SMS_SEND_LIMIT",
-		8: "PASSWORD_LOCKED",
-		9: "PERMISSION_DENIED",
+		0:  "USER_NOT_FOUND",
+		1:  "USER_ALREADY_EXISTS",
+		2:  "INVALID_PASSWORD",
+		3:  "INVALID_TOKEN",
+		4:  "USER_DISABLED",
+		5:  "SMS_CODE_INVALID",
+		6:  "SMS_CODE_EXPIRED",
+		7:  "SMS_SEND_LIMIT",
+		8:  "PASSWORD_LOCKED",
+		9:  "PERMISSION_DENIED",
+		10: "PASSWORD_NOT_MATCH",
 	}
 	ErrorReason_value = map[string]int32{
 		"USER_NOT_FOUND":      0,
@@ -63,6 +65,7 @@ var (
 		"SMS_SEND_LIMIT":      7,
 		"PASSWORD_LOCKED":     8,
 		"PERMISSION_DENIED":   9,
+		"PASSWORD_NOT_MATCH":  10,
 	}
 )
 
@@ -93,11 +96,12 @@ func (ErrorReason) EnumDescriptor() ([]byte, []int) {
 	return file_user_v1_user_proto_rawDescGZIP(), []int{0}
 }
 
-// 1. 账号密码登录
+// 1. 密码登录（手机号或邮箱）
 type LoginByPwdRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"` // 账号：手机号/用户名
-	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"` // 密码（6-20位数字、字母、下划线）
+	Phone         string                 `protobuf:"bytes,1,opt,name=phone,proto3" json:"phone,omitempty"`       // 手机号（11位数字，与email二选一）
+	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`       // 邮箱（与phone二选一）
+	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"` // 密码（6-20位数字、字母、下划线）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -132,9 +136,16 @@ func (*LoginByPwdRequest) Descriptor() ([]byte, []int) {
 	return file_user_v1_user_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *LoginByPwdRequest) GetUsername() string {
+func (x *LoginByPwdRequest) GetPhone() string {
 	if x != nil {
-		return x.Username
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *LoginByPwdRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
 	}
 	return ""
 }
@@ -199,16 +210,16 @@ func (x *LoginBySmsRequest) GetCode() string {
 	return ""
 }
 
-// 3. 注册（手机号+验证码+密码+邀请码）
+// 3. 注册（手机号+验证码+密码+确认密码）
 type RegisterRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Phone         string                 `protobuf:"bytes,1,opt,name=phone,proto3" json:"phone,omitempty"`           // 手机号（11位数字）
-	SmsCode       string                 `protobuf:"bytes,2,opt,name=smsCode,proto3" json:"smsCode,omitempty"`       // 短信验证码（6位数字）
-	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`     // 密码（6-20位数字、字母、下划线）
-	Nickname      string                 `protobuf:"bytes,4,opt,name=nickname,proto3" json:"nickname,omitempty"`     // 可选
-	InviteCode    string                 `protobuf:"bytes,5,opt,name=inviteCode,proto3" json:"inviteCode,omitempty"` // 可选（邀请码）
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Phone           string                 `protobuf:"bytes,1,opt,name=phone,proto3" json:"phone,omitempty"`                     // 手机号（11位数字）
+	SmsCode         string                 `protobuf:"bytes,2,opt,name=smsCode,proto3" json:"smsCode,omitempty"`                 // 短信验证码（6位数字）
+	Password        string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`               // 密码（6-20位数字、字母、下划线）
+	ConfirmPassword string                 `protobuf:"bytes,4,opt,name=confirmPassword,proto3" json:"confirmPassword,omitempty"` // 确认密码（必须与密码一致）
+	InviteCode      string                 `protobuf:"bytes,5,opt,name=inviteCode,proto3" json:"inviteCode,omitempty"`           // 可选（邀请码）
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *RegisterRequest) Reset() {
@@ -262,9 +273,9 @@ func (x *RegisterRequest) GetPassword() string {
 	return ""
 }
 
-func (x *RegisterRequest) GetNickname() string {
+func (x *RegisterRequest) GetConfirmPassword() string {
 	if x != nil {
-		return x.Nickname
+		return x.ConfirmPassword
 	}
 	return ""
 }
@@ -276,10 +287,10 @@ func (x *RegisterRequest) GetInviteCode() string {
 	return ""
 }
 
-// 4. 注册返回（只返回ID）
+// 4. 注册返回（只返回账号）
 type RegisterReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // 用户ID（唯一标识，数据库里的主键）
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // 用户ID/账号（MongoDB ObjectID.Hex()，用于登录）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -418,17 +429,16 @@ func (x *SendSmsReply) GetExpire() int64 {
 	return 0
 }
 
-// 6. 登录统一返回（只保留前8个）
+// 6. 登录统一返回
 type LoginReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                     // 用户ID（唯一标识，数据库里的主键）
-	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`         // 用户名（密码登录用的账号）
-	Phone         string                 `protobuf:"bytes,3,opt,name=phone,proto3" json:"phone,omitempty"`               // 手机号（脱敏展示，比如 138****1234）
-	Nickname      string                 `protobuf:"bytes,4,opt,name=nickname,proto3" json:"nickname,omitempty"`         // 昵称（页面显示的名字）
-	Avatar        string                 `protobuf:"bytes,5,opt,name=avatar,proto3" json:"avatar,omitempty"`             // 头像URL（前端显示头像）
-	AccessToken   string                 `protobuf:"bytes,6,opt,name=accessToken,proto3" json:"accessToken,omitempty"`   // 访问令牌（调接口必须带，证明你登录了）
-	RefreshToken  string                 `protobuf:"bytes,7,opt,name=refreshToken,proto3" json:"refreshToken,omitempty"` // 刷新令牌（accessToken过期时，用它换新的）
-	ExpiresIn     int64                  `protobuf:"varint,8,opt,name=expiresIn,proto3" json:"expiresIn,omitempty"`      // 过期时间（accessToken多少秒后过期）
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                     // 用户ID/账号（MongoDB ObjectID.Hex()）
+	Phone         string                 `protobuf:"bytes,2,opt,name=phone,proto3" json:"phone,omitempty"`               // 手机号（脱敏展示，比如 138****1234）
+	Nickname      string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`         // 昵称（页面显示的名字，如"用户_5678"）
+	Avatar        string                 `protobuf:"bytes,4,opt,name=avatar,proto3" json:"avatar,omitempty"`             // 头像URL（前端显示头像）
+	AccessToken   string                 `protobuf:"bytes,5,opt,name=accessToken,proto3" json:"accessToken,omitempty"`   // 访问令牌（调接口必须带，证明你登录了）
+	RefreshToken  string                 `protobuf:"bytes,6,opt,name=refreshToken,proto3" json:"refreshToken,omitempty"` // 刷新令牌（accessToken过期时，用它换新的）
+	ExpiresIn     int64                  `protobuf:"varint,7,opt,name=expiresIn,proto3" json:"expiresIn,omitempty"`      // 过期时间（accessToken多少秒后过期）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -466,13 +476,6 @@ func (*LoginReply) Descriptor() ([]byte, []int) {
 func (x *LoginReply) GetId() string {
 	if x != nil {
 		return x.Id
-	}
-	return ""
-}
-
-func (x *LoginReply) GetUsername() string {
-	if x != nil {
-		return x.Username
 	}
 	return ""
 }
@@ -564,66 +567,6 @@ func (x *RefreshTokenRequest) GetRefreshToken() string {
 	return ""
 }
 
-type RefreshTokenReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AccessToken   string                 `protobuf:"bytes,1,opt,name=accessToken,proto3" json:"accessToken,omitempty"`   // 访问令牌（调接口必须带，证明你登录了）
-	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refreshToken,proto3" json:"refreshToken,omitempty"` // 刷新令牌（accessToken过期时，用它换新的）
-	ExpiresIn     int64                  `protobuf:"varint,3,opt,name=expiresIn,proto3" json:"expiresIn,omitempty"`      // 过期时间（accessToken多少秒后过期）
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RefreshTokenReply) Reset() {
-	*x = RefreshTokenReply{}
-	mi := &file_user_v1_user_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RefreshTokenReply) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RefreshTokenReply) ProtoMessage() {}
-
-func (x *RefreshTokenReply) ProtoReflect() protoreflect.Message {
-	mi := &file_user_v1_user_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RefreshTokenReply.ProtoReflect.Descriptor instead.
-func (*RefreshTokenReply) Descriptor() ([]byte, []int) {
-	return file_user_v1_user_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *RefreshTokenReply) GetAccessToken() string {
-	if x != nil {
-		return x.AccessToken
-	}
-	return ""
-}
-
-func (x *RefreshTokenReply) GetRefreshToken() string {
-	if x != nil {
-		return x.RefreshToken
-	}
-	return ""
-}
-
-func (x *RefreshTokenReply) GetExpiresIn() int64 {
-	if x != nil {
-		return x.ExpiresIn
-	}
-	return 0
-}
-
 // 8. 退出登录
 type LogoutRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -634,7 +577,7 @@ type LogoutRequest struct {
 
 func (x *LogoutRequest) Reset() {
 	*x = LogoutRequest{}
-	mi := &file_user_v1_user_proto_msgTypes[9]
+	mi := &file_user_v1_user_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -646,7 +589,7 @@ func (x *LogoutRequest) String() string {
 func (*LogoutRequest) ProtoMessage() {}
 
 func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_v1_user_proto_msgTypes[9]
+	mi := &file_user_v1_user_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -659,7 +602,7 @@ func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutRequest.ProtoReflect.Descriptor instead.
 func (*LogoutRequest) Descriptor() ([]byte, []int) {
-	return file_user_v1_user_proto_rawDescGZIP(), []int{9}
+	return file_user_v1_user_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *LogoutRequest) GetRefreshToken() string {
@@ -679,7 +622,7 @@ type LogoutReply struct {
 
 func (x *LogoutReply) Reset() {
 	*x = LogoutReply{}
-	mi := &file_user_v1_user_proto_msgTypes[10]
+	mi := &file_user_v1_user_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -691,7 +634,7 @@ func (x *LogoutReply) String() string {
 func (*LogoutReply) ProtoMessage() {}
 
 func (x *LogoutReply) ProtoReflect() protoreflect.Message {
-	mi := &file_user_v1_user_proto_msgTypes[10]
+	mi := &file_user_v1_user_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -704,7 +647,7 @@ func (x *LogoutReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutReply.ProtoReflect.Descriptor instead.
 func (*LogoutReply) Descriptor() ([]byte, []int) {
-	return file_user_v1_user_proto_rawDescGZIP(), []int{10}
+	return file_user_v1_user_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *LogoutReply) GetSuccess() bool {
@@ -721,27 +664,70 @@ func (x *LogoutReply) GetMessage() string {
 	return ""
 }
 
-// 9. 获取当前登录用户信息（不需要传id）
-type GetMeRequest struct {
+// 9. 获取当前登录用户信息（不需要传id，从Token解析）
+type GetUserMeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetMeRequest) Reset() {
-	*x = GetMeRequest{}
+func (x *GetUserMeRequest) Reset() {
+	*x = GetUserMeRequest{}
+	mi := &file_user_v1_user_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserMeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserMeRequest) ProtoMessage() {}
+
+func (x *GetUserMeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_v1_user_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserMeRequest.ProtoReflect.Descriptor instead.
+func (*GetUserMeRequest) Descriptor() ([]byte, []int) {
+	return file_user_v1_user_proto_rawDescGZIP(), []int{10}
+}
+
+type GetUserMeReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                 // 用户ID/账号（MongoDB ObjectID.Hex()）
+	Phone         string                 `protobuf:"bytes,2,opt,name=phone,proto3" json:"phone,omitempty"`           // 手机号（脱敏展示）
+	Nickname      string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`     // 昵称（页面显示的名字）
+	Avatar        string                 `protobuf:"bytes,4,opt,name=avatar,proto3" json:"avatar,omitempty"`         // 头像URL
+	Email         string                 `protobuf:"bytes,5,opt,name=email,proto3" json:"email,omitempty"`           // 邮箱（可选）
+	Role          string                 `protobuf:"bytes,6,opt,name=role,proto3" json:"role,omitempty"`             // 用户角色（user/admin）
+	CreateTime    string                 `protobuf:"bytes,7,opt,name=createTime,proto3" json:"createTime,omitempty"` // 创建时间（RFC3339格式）
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserMeReply) Reset() {
+	*x = GetUserMeReply{}
 	mi := &file_user_v1_user_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetMeRequest) String() string {
+func (x *GetUserMeReply) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetMeRequest) ProtoMessage() {}
+func (*GetUserMeReply) ProtoMessage() {}
 
-func (x *GetMeRequest) ProtoReflect() protoreflect.Message {
+func (x *GetUserMeReply) ProtoReflect() protoreflect.Message {
 	mi := &file_user_v1_user_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -753,125 +739,136 @@ func (x *GetMeRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetMeRequest.ProtoReflect.Descriptor instead.
-func (*GetMeRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetUserMeReply.ProtoReflect.Descriptor instead.
+func (*GetUserMeReply) Descriptor() ([]byte, []int) {
 	return file_user_v1_user_proto_rawDescGZIP(), []int{11}
 }
 
-type GetMeReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                  // 用户ID（唯一标识，数据库里的主键）
-	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`      // 用户名（密码登录用的账号）
-	Phone         string                 `protobuf:"bytes,3,opt,name=phone,proto3" json:"phone,omitempty"`            // 手机号（脱敏展示，比如 138****1234）
-	Nickname      string                 `protobuf:"bytes,4,opt,name=nickname,proto3" json:"nickname,omitempty"`      // 昵称（页面显示的名字）
-	Avatar        string                 `protobuf:"bytes,5,opt,name=avatar,proto3" json:"avatar,omitempty"`          // 头像URL（前端显示头像）
-	Role          string                 `protobuf:"bytes,6,opt,name=role,proto3" json:"role,omitempty"`              // 用户角色（user/admin）
-	CreateTime    int64                  `protobuf:"varint,7,opt,name=createTime,proto3" json:"createTime,omitempty"` // 创建时间（时间戳）
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetMeReply) Reset() {
-	*x = GetMeReply{}
-	mi := &file_user_v1_user_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetMeReply) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetMeReply) ProtoMessage() {}
-
-func (x *GetMeReply) ProtoReflect() protoreflect.Message {
-	mi := &file_user_v1_user_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetMeReply.ProtoReflect.Descriptor instead.
-func (*GetMeReply) Descriptor() ([]byte, []int) {
-	return file_user_v1_user_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *GetMeReply) GetId() string {
+func (x *GetUserMeReply) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *GetMeReply) GetUsername() string {
-	if x != nil {
-		return x.Username
-	}
-	return ""
-}
-
-func (x *GetMeReply) GetPhone() string {
+func (x *GetUserMeReply) GetPhone() string {
 	if x != nil {
 		return x.Phone
 	}
 	return ""
 }
 
-func (x *GetMeReply) GetNickname() string {
+func (x *GetUserMeReply) GetNickname() string {
 	if x != nil {
 		return x.Nickname
 	}
 	return ""
 }
 
-func (x *GetMeReply) GetAvatar() string {
+func (x *GetUserMeReply) GetAvatar() string {
 	if x != nil {
 		return x.Avatar
 	}
 	return ""
 }
 
-func (x *GetMeReply) GetRole() string {
+func (x *GetUserMeReply) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *GetUserMeReply) GetRole() string {
 	if x != nil {
 		return x.Role
 	}
 	return ""
 }
 
-func (x *GetMeReply) GetCreateTime() int64 {
+func (x *GetUserMeReply) GetCreateTime() string {
 	if x != nil {
 		return x.CreateTime
 	}
-	return 0
+	return ""
 }
 
-// 10. 获取指定用户信息（需要权限检查）
-type GetUserRequest struct {
+// 10. 部分更新当前登录用户信息（从Token解析）
+type UpdateUserMeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // 用户ID（唯一标识，数据库里的主键）
+	Nickname      string                 `protobuf:"bytes,1,opt,name=nickname,proto3" json:"nickname,omitempty"` // 昵称（可选，不传则不修改）
+	Avatar        string                 `protobuf:"bytes,2,opt,name=avatar,proto3" json:"avatar,omitempty"`     // 头像URL（可选，不传则不修改）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetUserRequest) Reset() {
-	*x = GetUserRequest{}
+func (x *UpdateUserMeRequest) Reset() {
+	*x = UpdateUserMeRequest{}
+	mi := &file_user_v1_user_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateUserMeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateUserMeRequest) ProtoMessage() {}
+
+func (x *UpdateUserMeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_v1_user_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateUserMeRequest.ProtoReflect.Descriptor instead.
+func (*UpdateUserMeRequest) Descriptor() ([]byte, []int) {
+	return file_user_v1_user_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *UpdateUserMeRequest) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+func (x *UpdateUserMeRequest) GetAvatar() string {
+	if x != nil {
+		return x.Avatar
+	}
+	return ""
+}
+
+type UpdateUserMeReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`             // 用户ID
+	Nickname      string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"` // 昵称
+	Avatar        string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`     // 头像URL
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateUserMeReply) Reset() {
+	*x = UpdateUserMeReply{}
 	mi := &file_user_v1_user_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetUserRequest) String() string {
+func (x *UpdateUserMeReply) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetUserRequest) ProtoMessage() {}
+func (*UpdateUserMeReply) ProtoMessage() {}
 
-func (x *GetUserRequest) ProtoReflect() protoreflect.Message {
+func (x *UpdateUserMeReply) ProtoReflect() protoreflect.Message {
 	mi := &file_user_v1_user_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -883,44 +880,54 @@ func (x *GetUserRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetUserRequest.ProtoReflect.Descriptor instead.
-func (*GetUserRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpdateUserMeReply.ProtoReflect.Descriptor instead.
+func (*UpdateUserMeReply) Descriptor() ([]byte, []int) {
 	return file_user_v1_user_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *GetUserRequest) GetId() string {
+func (x *UpdateUserMeReply) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-type GetUserReply struct {
+func (x *UpdateUserMeReply) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+func (x *UpdateUserMeReply) GetAvatar() string {
+	if x != nil {
+		return x.Avatar
+	}
+	return ""
+}
+
+// 11. 获取指定用户信息（管理员操作他人，需要权限检查）
+type GetUserByIdRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                  // 用户ID（唯一标识，数据库里的主键）
-	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`      // 用户名（密码登录用的账号）
-	Phone         string                 `protobuf:"bytes,3,opt,name=phone,proto3" json:"phone,omitempty"`            // 手机号（脱敏展示，比如 138****1234）
-	Nickname      string                 `protobuf:"bytes,4,opt,name=nickname,proto3" json:"nickname,omitempty"`      // 昵称（页面显示的名字）
-	Avatar        string                 `protobuf:"bytes,5,opt,name=avatar,proto3" json:"avatar,omitempty"`          // 头像URL（前端显示头像）
-	CreateTime    int64                  `protobuf:"varint,6,opt,name=createTime,proto3" json:"createTime,omitempty"` // 创建时间（时间戳）
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // 用户ID（唯一标识）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetUserReply) Reset() {
-	*x = GetUserReply{}
+func (x *GetUserByIdRequest) Reset() {
+	*x = GetUserByIdRequest{}
 	mi := &file_user_v1_user_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetUserReply) String() string {
+func (x *GetUserByIdRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetUserReply) ProtoMessage() {}
+func (*GetUserByIdRequest) ProtoMessage() {}
 
-func (x *GetUserReply) ProtoReflect() protoreflect.Message {
+func (x *GetUserByIdRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_user_v1_user_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -932,137 +939,118 @@ func (x *GetUserReply) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetUserReply.ProtoReflect.Descriptor instead.
-func (*GetUserReply) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetUserByIdRequest.ProtoReflect.Descriptor instead.
+func (*GetUserByIdRequest) Descriptor() ([]byte, []int) {
 	return file_user_v1_user_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *GetUserReply) GetId() string {
+func (x *GetUserByIdRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *GetUserReply) GetUsername() string {
+type GetUserByIdReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                 // 用户ID/账号（MongoDB ObjectID.Hex()）
+	Phone         string                 `protobuf:"bytes,2,opt,name=phone,proto3" json:"phone,omitempty"`           // 手机号（脱敏展示）
+	Nickname      string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`     // 昵称（页面显示的名字）
+	Avatar        string                 `protobuf:"bytes,4,opt,name=avatar,proto3" json:"avatar,omitempty"`         // 头像URL
+	CreateTime    string                 `protobuf:"bytes,5,opt,name=createTime,proto3" json:"createTime,omitempty"` // 创建时间（RFC3339格式）
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserByIdReply) Reset() {
+	*x = GetUserByIdReply{}
+	mi := &file_user_v1_user_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserByIdReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserByIdReply) ProtoMessage() {}
+
+func (x *GetUserByIdReply) ProtoReflect() protoreflect.Message {
+	mi := &file_user_v1_user_proto_msgTypes[15]
 	if x != nil {
-		return x.Username
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserByIdReply.ProtoReflect.Descriptor instead.
+func (*GetUserByIdReply) Descriptor() ([]byte, []int) {
+	return file_user_v1_user_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetUserByIdReply) GetId() string {
+	if x != nil {
+		return x.Id
 	}
 	return ""
 }
 
-func (x *GetUserReply) GetPhone() string {
+func (x *GetUserByIdReply) GetPhone() string {
 	if x != nil {
 		return x.Phone
 	}
 	return ""
 }
 
-func (x *GetUserReply) GetNickname() string {
+func (x *GetUserByIdReply) GetNickname() string {
 	if x != nil {
 		return x.Nickname
 	}
 	return ""
 }
 
-func (x *GetUserReply) GetAvatar() string {
+func (x *GetUserByIdReply) GetAvatar() string {
 	if x != nil {
 		return x.Avatar
 	}
 	return ""
 }
 
-func (x *GetUserReply) GetCreateTime() int64 {
+func (x *GetUserByIdReply) GetCreateTime() string {
 	if x != nil {
 		return x.CreateTime
 	}
-	return 0
+	return ""
 }
 
-// 11. 更新用户信息（需要权限检查）
-type UpdateUserRequest struct {
+// 12. 部分更新指定用户信息（管理员操作他人，需要权限检查）
+type UpdateUserByIdRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`             // 用户ID（唯一标识，数据库里的主键）
-	Nickname      string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"` //昵称（页面显示的名字）
-	Avatar        string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`     // 头像URL（前端显示头像）
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`             // 用户ID（唯一标识，路径参数）
+	Nickname      string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"` // 昵称（可选，不传则不修改）
+	Avatar        string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`     // 头像URL（可选，不传则不修改）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpdateUserRequest) Reset() {
-	*x = UpdateUserRequest{}
-	mi := &file_user_v1_user_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateUserRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateUserRequest) ProtoMessage() {}
-
-func (x *UpdateUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_v1_user_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateUserRequest.ProtoReflect.Descriptor instead.
-func (*UpdateUserRequest) Descriptor() ([]byte, []int) {
-	return file_user_v1_user_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *UpdateUserRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *UpdateUserRequest) GetNickname() string {
-	if x != nil {
-		return x.Nickname
-	}
-	return ""
-}
-
-func (x *UpdateUserRequest) GetAvatar() string {
-	if x != nil {
-		return x.Avatar
-	}
-	return ""
-}
-
-type UpdateUserReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`             // 用户ID（唯一标识，数据库里的主键）
-	Nickname      string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"` // 昵称（页面显示的名字）
-	Avatar        string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`     // 头像URL（前端显示头像）
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateUserReply) Reset() {
-	*x = UpdateUserReply{}
+func (x *UpdateUserByIdRequest) Reset() {
+	*x = UpdateUserByIdRequest{}
 	mi := &file_user_v1_user_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UpdateUserReply) String() string {
+func (x *UpdateUserByIdRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpdateUserReply) ProtoMessage() {}
+func (*UpdateUserByIdRequest) ProtoMessage() {}
 
-func (x *UpdateUserReply) ProtoReflect() protoreflect.Message {
+func (x *UpdateUserByIdRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_user_v1_user_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1074,28 +1062,282 @@ func (x *UpdateUserReply) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpdateUserReply.ProtoReflect.Descriptor instead.
-func (*UpdateUserReply) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpdateUserByIdRequest.ProtoReflect.Descriptor instead.
+func (*UpdateUserByIdRequest) Descriptor() ([]byte, []int) {
 	return file_user_v1_user_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *UpdateUserReply) GetId() string {
+func (x *UpdateUserByIdRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *UpdateUserReply) GetNickname() string {
+func (x *UpdateUserByIdRequest) GetNickname() string {
 	if x != nil {
 		return x.Nickname
 	}
 	return ""
 }
 
-func (x *UpdateUserReply) GetAvatar() string {
+func (x *UpdateUserByIdRequest) GetAvatar() string {
 	if x != nil {
 		return x.Avatar
+	}
+	return ""
+}
+
+type UpdateUserByIdReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`             // 用户ID
+	Nickname      string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"` // 昵称
+	Avatar        string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`     // 头像URL
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateUserByIdReply) Reset() {
+	*x = UpdateUserByIdReply{}
+	mi := &file_user_v1_user_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateUserByIdReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateUserByIdReply) ProtoMessage() {}
+
+func (x *UpdateUserByIdReply) ProtoReflect() protoreflect.Message {
+	mi := &file_user_v1_user_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateUserByIdReply.ProtoReflect.Descriptor instead.
+func (*UpdateUserByIdReply) Descriptor() ([]byte, []int) {
+	return file_user_v1_user_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *UpdateUserByIdReply) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateUserByIdReply) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+func (x *UpdateUserByIdReply) GetAvatar() string {
+	if x != nil {
+		return x.Avatar
+	}
+	return ""
+}
+
+// 13. 部分更新个人信息（邮箱等，从Token解析）
+type UpdateProfileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"` // 邮箱（可选，不传则不修改）
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateProfileRequest) Reset() {
+	*x = UpdateProfileRequest{}
+	mi := &file_user_v1_user_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateProfileRequest) ProtoMessage() {}
+
+func (x *UpdateProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_v1_user_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateProfileRequest.ProtoReflect.Descriptor instead.
+func (*UpdateProfileRequest) Descriptor() ([]byte, []int) {
+	return file_user_v1_user_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *UpdateProfileRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type UpdateProfileReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"` // 邮箱
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateProfileReply) Reset() {
+	*x = UpdateProfileReply{}
+	mi := &file_user_v1_user_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateProfileReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateProfileReply) ProtoMessage() {}
+
+func (x *UpdateProfileReply) ProtoReflect() protoreflect.Message {
+	mi := &file_user_v1_user_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateProfileReply.ProtoReflect.Descriptor instead.
+func (*UpdateProfileReply) Descriptor() ([]byte, []int) {
+	return file_user_v1_user_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *UpdateProfileReply) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+// 14. 内部接口：获取用户真实信息（仅服务间调用）
+type InternalGetUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // 用户ID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InternalGetUserRequest) Reset() {
+	*x = InternalGetUserRequest{}
+	mi := &file_user_v1_user_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InternalGetUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InternalGetUserRequest) ProtoMessage() {}
+
+func (x *InternalGetUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_v1_user_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InternalGetUserRequest.ProtoReflect.Descriptor instead.
+func (*InternalGetUserRequest) Descriptor() ([]byte, []int) {
+	return file_user_v1_user_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *InternalGetUserRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type InternalGetUserReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`       // 用户ID
+	Phone         string                 `protobuf:"bytes,2,opt,name=phone,proto3" json:"phone,omitempty"` // 手机号（真实值，不脱敏）
+	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"` // 邮箱（真实值）
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InternalGetUserReply) Reset() {
+	*x = InternalGetUserReply{}
+	mi := &file_user_v1_user_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InternalGetUserReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InternalGetUserReply) ProtoMessage() {}
+
+func (x *InternalGetUserReply) ProtoReflect() protoreflect.Message {
+	mi := &file_user_v1_user_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InternalGetUserReply.ProtoReflect.Descriptor instead.
+func (*InternalGetUserReply) Descriptor() ([]byte, []int) {
+	return file_user_v1_user_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *InternalGetUserReply) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *InternalGetUserReply) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *InternalGetUserReply) GetEmail() string {
+	if x != nil {
+		return x.Email
 	}
 	return ""
 }
@@ -1104,18 +1346,19 @@ var File_user_v1_user_proto protoreflect.FileDescriptor
 
 const file_user_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x12user/v1/user.proto\x12\vapi.user.v1\x1a\x1cgoogle/api/annotations.proto\"K\n" +
-	"\x11LoginByPwdRequest\x12\x1a\n" +
-	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"=\n" +
+	"\x12user/v1/user.proto\x12\vapi.user.v1\x1a\x1cgoogle/api/annotations.proto\"[\n" +
+	"\x11LoginByPwdRequest\x12\x14\n" +
+	"\x05phone\x18\x01 \x01(\tR\x05phone\x12\x14\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1a\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\"=\n" +
 	"\x11LoginBySmsRequest\x12\x14\n" +
 	"\x05phone\x18\x01 \x01(\tR\x05phone\x12\x12\n" +
-	"\x04code\x18\x02 \x01(\tR\x04code\"\x99\x01\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\"\xa7\x01\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05phone\x18\x01 \x01(\tR\x05phone\x12\x18\n" +
 	"\asmsCode\x18\x02 \x01(\tR\asmsCode\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x1a\n" +
-	"\bnickname\x18\x04 \x01(\tR\bnickname\x12\x1e\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\x12(\n" +
+	"\x0fconfirmPassword\x18\x04 \x01(\tR\x0fconfirmPassword\x12\x1e\n" +
 	"\n" +
 	"inviteCode\x18\x05 \x01(\tR\n" +
 	"inviteCode\"\x1f\n" +
@@ -1125,59 +1368,69 @@ const file_user_v1_user_proto_rawDesc = "" +
 	"\x05phone\x18\x01 \x01(\tR\x05phone\"@\n" +
 	"\fSendSmsReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x16\n" +
-	"\x06expire\x18\x02 \x01(\x03R\x06expire\"\xe6\x01\n" +
+	"\x06expire\x18\x02 \x01(\x03R\x06expire\"\xca\x01\n" +
 	"\n" +
 	"LoginReply\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\x12\x14\n" +
-	"\x05phone\x18\x03 \x01(\tR\x05phone\x12\x1a\n" +
-	"\bnickname\x18\x04 \x01(\tR\bnickname\x12\x16\n" +
-	"\x06avatar\x18\x05 \x01(\tR\x06avatar\x12 \n" +
-	"\vaccessToken\x18\x06 \x01(\tR\vaccessToken\x12\"\n" +
-	"\frefreshToken\x18\a \x01(\tR\frefreshToken\x12\x1c\n" +
-	"\texpiresIn\x18\b \x01(\x03R\texpiresIn\"9\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05phone\x18\x02 \x01(\tR\x05phone\x12\x1a\n" +
+	"\bnickname\x18\x03 \x01(\tR\bnickname\x12\x16\n" +
+	"\x06avatar\x18\x04 \x01(\tR\x06avatar\x12 \n" +
+	"\vaccessToken\x18\x05 \x01(\tR\vaccessToken\x12\"\n" +
+	"\frefreshToken\x18\x06 \x01(\tR\frefreshToken\x12\x1c\n" +
+	"\texpiresIn\x18\a \x01(\x03R\texpiresIn\"9\n" +
 	"\x13RefreshTokenRequest\x12\"\n" +
-	"\frefreshToken\x18\x01 \x01(\tR\frefreshToken\"w\n" +
-	"\x11RefreshTokenReply\x12 \n" +
-	"\vaccessToken\x18\x01 \x01(\tR\vaccessToken\x12\"\n" +
-	"\frefreshToken\x18\x02 \x01(\tR\frefreshToken\x12\x1c\n" +
-	"\texpiresIn\x18\x03 \x01(\x03R\texpiresIn\"3\n" +
+	"\frefreshToken\x18\x01 \x01(\tR\frefreshToken\"3\n" +
 	"\rLogoutRequest\x12\"\n" +
 	"\frefreshToken\x18\x01 \x01(\tR\frefreshToken\"A\n" +
 	"\vLogoutReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x0e\n" +
-	"\fGetMeRequest\"\xb6\x01\n" +
-	"\n" +
-	"GetMeReply\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\x12\x14\n" +
-	"\x05phone\x18\x03 \x01(\tR\x05phone\x12\x1a\n" +
-	"\bnickname\x18\x04 \x01(\tR\bnickname\x12\x16\n" +
-	"\x06avatar\x18\x05 \x01(\tR\x06avatar\x12\x12\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x12\n" +
+	"\x10GetUserMeRequest\"\xb4\x01\n" +
+	"\x0eGetUserMeReply\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05phone\x18\x02 \x01(\tR\x05phone\x12\x1a\n" +
+	"\bnickname\x18\x03 \x01(\tR\bnickname\x12\x16\n" +
+	"\x06avatar\x18\x04 \x01(\tR\x06avatar\x12\x14\n" +
+	"\x05email\x18\x05 \x01(\tR\x05email\x12\x12\n" +
 	"\x04role\x18\x06 \x01(\tR\x04role\x12\x1e\n" +
 	"\n" +
-	"createTime\x18\a \x01(\x03R\n" +
-	"createTime\" \n" +
-	"\x0eGetUserRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\xa4\x01\n" +
-	"\fGetUserReply\x12\x0e\n" +
+	"createTime\x18\a \x01(\tR\n" +
+	"createTime\"I\n" +
+	"\x13UpdateUserMeRequest\x12\x1a\n" +
+	"\bnickname\x18\x01 \x01(\tR\bnickname\x12\x16\n" +
+	"\x06avatar\x18\x02 \x01(\tR\x06avatar\"W\n" +
+	"\x11UpdateUserMeReply\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\x12\x14\n" +
-	"\x05phone\x18\x03 \x01(\tR\x05phone\x12\x1a\n" +
-	"\bnickname\x18\x04 \x01(\tR\bnickname\x12\x16\n" +
-	"\x06avatar\x18\x05 \x01(\tR\x06avatar\x12\x1e\n" +
+	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x16\n" +
+	"\x06avatar\x18\x03 \x01(\tR\x06avatar\"$\n" +
+	"\x12GetUserByIdRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x8c\x01\n" +
+	"\x10GetUserByIdReply\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05phone\x18\x02 \x01(\tR\x05phone\x12\x1a\n" +
+	"\bnickname\x18\x03 \x01(\tR\bnickname\x12\x16\n" +
+	"\x06avatar\x18\x04 \x01(\tR\x06avatar\x12\x1e\n" +
 	"\n" +
-	"createTime\x18\x06 \x01(\x03R\n" +
-	"createTime\"W\n" +
-	"\x11UpdateUserRequest\x12\x0e\n" +
+	"createTime\x18\x05 \x01(\tR\n" +
+	"createTime\"[\n" +
+	"\x15UpdateUserByIdRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x16\n" +
-	"\x06avatar\x18\x03 \x01(\tR\x06avatar\"U\n" +
-	"\x0fUpdateUserReply\x12\x0e\n" +
+	"\x06avatar\x18\x03 \x01(\tR\x06avatar\"Y\n" +
+	"\x13UpdateUserByIdReply\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x16\n" +
-	"\x06avatar\x18\x03 \x01(\tR\x06avatar*\xe2\x01\n" +
+	"\x06avatar\x18\x03 \x01(\tR\x06avatar\",\n" +
+	"\x14UpdateProfileRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"*\n" +
+	"\x12UpdateProfileReply\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"(\n" +
+	"\x16InternalGetUserRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"R\n" +
+	"\x14InternalGetUserReply\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05phone\x18\x02 \x01(\tR\x05phone\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email*\xfa\x01\n" +
 	"\vErrorReason\x12\x12\n" +
 	"\x0eUSER_NOT_FOUND\x10\x00\x12\x17\n" +
 	"\x13USER_ALREADY_EXISTS\x10\x01\x12\x14\n" +
@@ -1188,19 +1441,23 @@ const file_user_v1_user_proto_rawDesc = "" +
 	"\x10SMS_CODE_EXPIRED\x10\x06\x12\x12\n" +
 	"\x0eSMS_SEND_LIMIT\x10\a\x12\x13\n" +
 	"\x0fPASSWORD_LOCKED\x10\b\x12\x15\n" +
-	"\x11PERMISSION_DENIED\x10\t2\xf0\x06\n" +
+	"\x11PERMISSION_DENIED\x10\t\x12\x16\n" +
+	"\x12PASSWORD_NOT_MATCH\x10\n" +
+	"2\xd0\t\n" +
 	"\vUserService\x12b\n" +
 	"\bRegister\x12\x1c.api.user.v1.RegisterRequest\x1a\x1a.api.user.v1.RegisterReply\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/user/register\x12[\n" +
 	"\x05Login\x12\x1e.api.user.v1.LoginByPwdRequest\x1a\x17.api.user.v1.LoginReply\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/user/login\x12c\n" +
 	"\vSendSmsCode\x12\x1b.api.user.v1.SendSmsRequest\x1a\x19.api.user.v1.SendSmsReply\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/user/sms/send\x12d\n" +
 	"\n" +
 	"LoginBySms\x12\x1e.api.user.v1.LoginBySmsRequest\x1a\x17.api.user.v1.LoginReply\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/v1/user/login/sms\x12l\n" +
-	"\fRefreshToken\x12 .api.user.v1.RefreshTokenRequest\x1a\x17.api.user.v1.LoginReply\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/v1/user/token/refresh\x12K\n" +
-	"\x05GetMe\x12\x19.api.user.v1.GetMeRequest\x1a\x17.api.user.v1.GetMeReply\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/v1/me\x12X\n" +
-	"\aGetUser\x12\x1b.api.user.v1.GetUserRequest\x1a\x19.api.user.v1.GetUserReply\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/v1/user/{id}\x12d\n" +
-	"\n" +
-	"UpdateUser\x12\x1e.api.user.v1.UpdateUserRequest\x1a\x1c.api.user.v1.UpdateUserReply\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\x1a\r/v1/user/{id}\x12Z\n" +
-	"\x06Logout\x12\x1a.api.user.v1.LogoutRequest\x1a\x18.api.user.v1.LogoutReply\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/user/logoutB#Z!shared-device-saas/api/user/v1;v1b\x06proto3"
+	"\fRefreshToken\x12 .api.user.v1.RefreshTokenRequest\x1a\x17.api.user.v1.LoginReply\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/v1/user/token/refresh\x12\\\n" +
+	"\tGetUserMe\x12\x1d.api.user.v1.GetUserMeRequest\x1a\x1b.api.user.v1.GetUserMeReply\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/v1/user/me\x12h\n" +
+	"\fUpdateUserMe\x12 .api.user.v1.UpdateUserMeRequest\x1a\x1e.api.user.v1.UpdateUserMeReply\"\x16\x82\xd3\xe4\x93\x02\x10:\x01*2\v/v1/user/me\x12d\n" +
+	"\vGetUserById\x12\x1f.api.user.v1.GetUserByIdRequest\x1a\x1d.api.user.v1.GetUserByIdReply\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/v1/user/{id}\x12p\n" +
+	"\x0eUpdateUserById\x12\".api.user.v1.UpdateUserByIdRequest\x1a .api.user.v1.UpdateUserByIdReply\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*2\r/v1/user/{id}\x12p\n" +
+	"\rUpdateProfile\x12!.api.user.v1.UpdateProfileRequest\x1a\x1f.api.user.v1.UpdateProfileReply\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*2\x10/v1/user/profile\x12Z\n" +
+	"\x06Logout\x12\x1a.api.user.v1.LogoutRequest\x1a\x18.api.user.v1.LogoutReply\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/user/logout\x12Y\n" +
+	"\x0fInternalGetUser\x12#.api.user.v1.InternalGetUserRequest\x1a!.api.user.v1.InternalGetUserReplyB#Z!shared-device-saas/api/user/v1;v1b\x06proto3"
 
 var (
 	file_user_v1_user_proto_rawDescOnce sync.Once
@@ -1215,26 +1472,31 @@ func file_user_v1_user_proto_rawDescGZIP() []byte {
 }
 
 var file_user_v1_user_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_user_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_user_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_user_v1_user_proto_goTypes = []any{
-	(ErrorReason)(0),            // 0: api.user.v1.ErrorReason
-	(*LoginByPwdRequest)(nil),   // 1: api.user.v1.LoginByPwdRequest
-	(*LoginBySmsRequest)(nil),   // 2: api.user.v1.LoginBySmsRequest
-	(*RegisterRequest)(nil),     // 3: api.user.v1.RegisterRequest
-	(*RegisterReply)(nil),       // 4: api.user.v1.RegisterReply
-	(*SendSmsRequest)(nil),      // 5: api.user.v1.SendSmsRequest
-	(*SendSmsReply)(nil),        // 6: api.user.v1.SendSmsReply
-	(*LoginReply)(nil),          // 7: api.user.v1.LoginReply
-	(*RefreshTokenRequest)(nil), // 8: api.user.v1.RefreshTokenRequest
-	(*RefreshTokenReply)(nil),   // 9: api.user.v1.RefreshTokenReply
-	(*LogoutRequest)(nil),       // 10: api.user.v1.LogoutRequest
-	(*LogoutReply)(nil),         // 11: api.user.v1.LogoutReply
-	(*GetMeRequest)(nil),        // 12: api.user.v1.GetMeRequest
-	(*GetMeReply)(nil),          // 13: api.user.v1.GetMeReply
-	(*GetUserRequest)(nil),      // 14: api.user.v1.GetUserRequest
-	(*GetUserReply)(nil),        // 15: api.user.v1.GetUserReply
-	(*UpdateUserRequest)(nil),   // 16: api.user.v1.UpdateUserRequest
-	(*UpdateUserReply)(nil),     // 17: api.user.v1.UpdateUserReply
+	(ErrorReason)(0),               // 0: api.user.v1.ErrorReason
+	(*LoginByPwdRequest)(nil),      // 1: api.user.v1.LoginByPwdRequest
+	(*LoginBySmsRequest)(nil),      // 2: api.user.v1.LoginBySmsRequest
+	(*RegisterRequest)(nil),        // 3: api.user.v1.RegisterRequest
+	(*RegisterReply)(nil),          // 4: api.user.v1.RegisterReply
+	(*SendSmsRequest)(nil),         // 5: api.user.v1.SendSmsRequest
+	(*SendSmsReply)(nil),           // 6: api.user.v1.SendSmsReply
+	(*LoginReply)(nil),             // 7: api.user.v1.LoginReply
+	(*RefreshTokenRequest)(nil),    // 8: api.user.v1.RefreshTokenRequest
+	(*LogoutRequest)(nil),          // 9: api.user.v1.LogoutRequest
+	(*LogoutReply)(nil),            // 10: api.user.v1.LogoutReply
+	(*GetUserMeRequest)(nil),       // 11: api.user.v1.GetUserMeRequest
+	(*GetUserMeReply)(nil),         // 12: api.user.v1.GetUserMeReply
+	(*UpdateUserMeRequest)(nil),    // 13: api.user.v1.UpdateUserMeRequest
+	(*UpdateUserMeReply)(nil),      // 14: api.user.v1.UpdateUserMeReply
+	(*GetUserByIdRequest)(nil),     // 15: api.user.v1.GetUserByIdRequest
+	(*GetUserByIdReply)(nil),       // 16: api.user.v1.GetUserByIdReply
+	(*UpdateUserByIdRequest)(nil),  // 17: api.user.v1.UpdateUserByIdRequest
+	(*UpdateUserByIdReply)(nil),    // 18: api.user.v1.UpdateUserByIdReply
+	(*UpdateProfileRequest)(nil),   // 19: api.user.v1.UpdateProfileRequest
+	(*UpdateProfileReply)(nil),     // 20: api.user.v1.UpdateProfileReply
+	(*InternalGetUserRequest)(nil), // 21: api.user.v1.InternalGetUserRequest
+	(*InternalGetUserReply)(nil),   // 22: api.user.v1.InternalGetUserReply
 }
 var file_user_v1_user_proto_depIdxs = []int32{
 	3,  // 0: api.user.v1.UserService.Register:input_type -> api.user.v1.RegisterRequest
@@ -1242,21 +1504,27 @@ var file_user_v1_user_proto_depIdxs = []int32{
 	5,  // 2: api.user.v1.UserService.SendSmsCode:input_type -> api.user.v1.SendSmsRequest
 	2,  // 3: api.user.v1.UserService.LoginBySms:input_type -> api.user.v1.LoginBySmsRequest
 	8,  // 4: api.user.v1.UserService.RefreshToken:input_type -> api.user.v1.RefreshTokenRequest
-	12, // 5: api.user.v1.UserService.GetMe:input_type -> api.user.v1.GetMeRequest
-	14, // 6: api.user.v1.UserService.GetUser:input_type -> api.user.v1.GetUserRequest
-	16, // 7: api.user.v1.UserService.UpdateUser:input_type -> api.user.v1.UpdateUserRequest
-	10, // 8: api.user.v1.UserService.Logout:input_type -> api.user.v1.LogoutRequest
-	4,  // 9: api.user.v1.UserService.Register:output_type -> api.user.v1.RegisterReply
-	7,  // 10: api.user.v1.UserService.Login:output_type -> api.user.v1.LoginReply
-	6,  // 11: api.user.v1.UserService.SendSmsCode:output_type -> api.user.v1.SendSmsReply
-	7,  // 12: api.user.v1.UserService.LoginBySms:output_type -> api.user.v1.LoginReply
-	7,  // 13: api.user.v1.UserService.RefreshToken:output_type -> api.user.v1.LoginReply
-	13, // 14: api.user.v1.UserService.GetMe:output_type -> api.user.v1.GetMeReply
-	15, // 15: api.user.v1.UserService.GetUser:output_type -> api.user.v1.GetUserReply
-	17, // 16: api.user.v1.UserService.UpdateUser:output_type -> api.user.v1.UpdateUserReply
-	11, // 17: api.user.v1.UserService.Logout:output_type -> api.user.v1.LogoutReply
-	9,  // [9:18] is the sub-list for method output_type
-	0,  // [0:9] is the sub-list for method input_type
+	11, // 5: api.user.v1.UserService.GetUserMe:input_type -> api.user.v1.GetUserMeRequest
+	13, // 6: api.user.v1.UserService.UpdateUserMe:input_type -> api.user.v1.UpdateUserMeRequest
+	15, // 7: api.user.v1.UserService.GetUserById:input_type -> api.user.v1.GetUserByIdRequest
+	17, // 8: api.user.v1.UserService.UpdateUserById:input_type -> api.user.v1.UpdateUserByIdRequest
+	19, // 9: api.user.v1.UserService.UpdateProfile:input_type -> api.user.v1.UpdateProfileRequest
+	9,  // 10: api.user.v1.UserService.Logout:input_type -> api.user.v1.LogoutRequest
+	21, // 11: api.user.v1.UserService.InternalGetUser:input_type -> api.user.v1.InternalGetUserRequest
+	4,  // 12: api.user.v1.UserService.Register:output_type -> api.user.v1.RegisterReply
+	7,  // 13: api.user.v1.UserService.Login:output_type -> api.user.v1.LoginReply
+	6,  // 14: api.user.v1.UserService.SendSmsCode:output_type -> api.user.v1.SendSmsReply
+	7,  // 15: api.user.v1.UserService.LoginBySms:output_type -> api.user.v1.LoginReply
+	7,  // 16: api.user.v1.UserService.RefreshToken:output_type -> api.user.v1.LoginReply
+	12, // 17: api.user.v1.UserService.GetUserMe:output_type -> api.user.v1.GetUserMeReply
+	14, // 18: api.user.v1.UserService.UpdateUserMe:output_type -> api.user.v1.UpdateUserMeReply
+	16, // 19: api.user.v1.UserService.GetUserById:output_type -> api.user.v1.GetUserByIdReply
+	18, // 20: api.user.v1.UserService.UpdateUserById:output_type -> api.user.v1.UpdateUserByIdReply
+	20, // 21: api.user.v1.UserService.UpdateProfile:output_type -> api.user.v1.UpdateProfileReply
+	10, // 22: api.user.v1.UserService.Logout:output_type -> api.user.v1.LogoutReply
+	22, // 23: api.user.v1.UserService.InternalGetUser:output_type -> api.user.v1.InternalGetUserReply
+	12, // [12:24] is the sub-list for method output_type
+	0,  // [0:12] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -1273,7 +1541,7 @@ func file_user_v1_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_v1_user_proto_rawDesc), len(file_user_v1_user_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   17,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

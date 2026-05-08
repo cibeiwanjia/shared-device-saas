@@ -25,58 +25,69 @@ var (
 	ErrSMSSendLimit      = errors.BadRequest(v1.ErrorReason_SMS_SEND_LIMIT.String(), "短信发送频率超限")
 	ErrPasswordLocked    = errors.Forbidden(v1.ErrorReason_PASSWORD_LOCKED.String(), "密码错误次数过多，已被锁定")
 	ErrInvalidPhone      = errors.BadRequest("INVALID_PHONE", "手机号格式不正确")
+	ErrPasswordNotMatch  = errors.BadRequest(v1.ErrorReason_PASSWORD_NOT_MATCH.String(), "两次密码不一致")
+	ErrInvalidEmail      = errors.BadRequest("INVALID_EMAIL", "邮箱格式不正确")
+	ErrEmailAlreadyUsed  = errors.Conflict("EMAIL_ALREADY_USED", "邮箱已被使用")
+	ErrNoLoginAccount    = errors.BadRequest("NO_LOGIN_ACCOUNT", "请输入手机号或邮箱")
 )
 
 // User 用户实体
 type User struct {
-	ID         string // ObjectID Hex
-	Username   string
+	ID         string // ObjectID Hex（账号）
 	Password   string // bcrypt 加密后的密码
-	Email      string
-	Phone      string
-	Nickname   string
-	Avatar     string
-	InviteCode string
-	Status     int32
-	Role       string
-	CreateTime int64
-	UpdateTime int64
+	Email      string // 邮箱（可选）
+	Phone      string // 手机号
+	Nickname   string // 昵称（默认：用户_手机号后4位）
+	Avatar     string // 头像URL
+	InviteCode string // 邀请码
+	Status     int32  // 状态（1正常，0禁用）
+	Role       string // 角色（user/admin）
+	CreateTime string // 创建时间（RFC3339格式）
+	UpdateTime string // 更新时间（RFC3339格式）
 }
 
 // TokenPair Token对
 type TokenPair struct {
-	AccessToken  string
-	RefreshToken string
-	ExpiresIn    int64
+	AccessToken  string // 访问令牌
+	RefreshToken string // 刷新令牌
+	ExpiresIn    int64  // 过期时间（秒）
 }
 
 // UserRepo 用户仓储接口
 type UserRepo interface {
-	Create(context.Context, *User) (*User, error)
-	FindByPhone(context.Context, string) (*User, error)
-	FindByUsername(context.Context, string) (*User, error)
-	FindByID(context.Context, string) (*User, error)
-	Update(context.Context, *User) (*User, error)
+	Create(context.Context, *User) (*User, error)       // 创建用户
+	FindByPhone(context.Context, string) (*User, error) // 手机号查找
+	FindByEmail(context.Context, string) (*User, error) // 新增：邮箱查找
+	FindByID(context.Context, string) (*User, error)    // 根据ID查找用户
+	Update(context.Context, *User) (*User, error)       // 更新用户
 }
 
 // UserUsecase 用户用例
 type UserUsecase struct {
-	repo       UserRepo
-	redis      *redis.Client
-	sms        *sms.IhuyiClient
-	jwtManager *auth.JWTManager
-	log        *log.Helper
+	repo       UserRepo         // 用户仓储接口
+	redis      *redis.Client    // Redis 客户端
+	sms        *sms.IhuyiClient // 短信服务客户端
+	jwtManager *auth.JWTManager // JWT 管理器
+	log        *log.Helper      // 日志助手
 }
 
 // NewUserUsecase 创建用户用例
 func NewUserUsecase(repo UserRepo, redis *redis.Client, sms *sms.IhuyiClient, jwtManager *auth.JWTManager, logger log.Logger) *UserUsecase {
 	return &UserUsecase{
-		repo:       repo,
-		redis:      redis,
-		sms:        sms,
-		jwtManager: jwtManager,
-		log:        log.NewHelper(logger),
+		repo:       repo,                  // 用户仓储接口
+		redis:      redis,                 // Redis 客户端
+		sms:        sms,                   // 短信服务客户端
+		jwtManager: jwtManager,            // JWT 管理器
+		log:        log.NewHelper(logger), // 日志助手
 	}
+}
+
+// generateDefaultNickname 生成默认昵称：用户_手机号后4位
+func generateDefaultNickname(phone string) string {
+	if len(phone) < 4 {
+		return "用户_" + phone
+	}
+	return "用户_" + phone[len(phone)-4:]
 }
 
 // ========================================
@@ -92,7 +103,7 @@ func (uc *UserUsecase) SendSms(ctx context.Context, phone string) (int64, error)
 	// 2. 校验发送冷却（60秒内不能重复发送）
 	cooldown, err := uc.redis.CheckSMSCooldown(ctx, phone)
 	if err != nil {
-		uc.log.Errorf("Check SMS cooldown failed: %v", err)
+		uc.log.Errorf("Check SMS cooldown: failed %v", err)
 	}
 	if cooldown {
 		return 0, ErrSMSSendLimit
@@ -134,10 +145,10 @@ func (uc *UserUsecase) SendSms(ctx context.Context, phone string) (int64, error)
 }
 
 // ========================================
-// 2. Register 注册（手机号 + 验证码 + 密码）
+// 2. Register 注册（手机号 + 验证码 + 密码 + 确认密码）
 // ========================================
 
-func (uc *UserUsecase) Register(ctx context.Context, phone, smsCode, password, nickname, inviteCode string) (string, error) {
+func (uc *UserUsecase) Register(ctx context.Context, phone, smsCode, password, confirmPassword, inviteCode string) (string, error) {
 	// 1. 校验手机号是否已注册
 	existing, err := uc.repo.FindByPhone(ctx, phone)
 	if err == nil && existing != nil {
@@ -160,19 +171,24 @@ func (uc *UserUsecase) Register(ctx context.Context, phone, smsCode, password, n
 	// 3. 删除验证码（验证通过）
 	uc.redis.DelSMSCode(ctx, phone)
 
-	// 4. bcrypt 加密密码
+	// 4. 校验两次密码一致
+	if password != confirmPassword {
+		return "", ErrPasswordNotMatch
+	}
+
+	// 5. bcrypt 加密密码
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		uc.log.Errorf("Hash password failed: %v", err)
 		return "", err
 	}
 
-	// 5. 设置默认值
-	now := time.Now().Unix()
+	// 6. 设置默认值
+	now := time.Now().Format(time.RFC3339)
 	user := &User{
 		Phone:      phone,
 		Password:   string(hashedPassword),
-		Nickname:   nickname,
+		Nickname:   generateDefaultNickname(phone), // 自动生成昵称：用户_手机号后4位
 		InviteCode: inviteCode,
 		Status:     1,
 		Role:       "user",
@@ -180,28 +196,38 @@ func (uc *UserUsecase) Register(ctx context.Context, phone, smsCode, password, n
 		UpdateTime: now,
 	}
 
-	// 6. 创建用户
+	// 7. 创建用户
 	created, err := uc.repo.Create(ctx, user)
 	if err != nil {
 		return "", err
 	}
 
-	uc.log.Infof("User registered: id=%s, phone=%s", created.ID, created.Phone)
-	return created.ID, nil
+	uc.log.Infof("User registered: id=%s, phone=%s, nickname=%s", created.ID, created.Phone, created.Nickname)
+	return created.ID, nil // 返回账号（user_id）
 }
 
 // ========================================
-// 3. LoginByPwd 账号密码登录
+// 3. LoginByPwd 密码登录（手机号或邮箱）
 // ========================================
 
-func (uc *UserUsecase) LoginByPwd(ctx context.Context, username, password string) (*User, *TokenPair, error) {
-	// 1. 先按手机号查找，再按用户名查找
-	user, err := uc.repo.FindByPhone(ctx, username)
+func (uc *UserUsecase) LoginByPwd(ctx context.Context, phone, email, password string) (*User, *TokenPair, error) {
+	// 1. 判断登录账号类型
+	var user *User
+	var err error
+
+	if phone != "" {
+		// 手机号登录
+		user, err = uc.repo.FindByPhone(ctx, phone)
+	} else if email != "" {
+		// 邮箱登录
+		user, err = uc.repo.FindByEmail(ctx, email)
+	} else {
+		// 两个都为空
+		return nil, nil, ErrNoLoginAccount
+	}
+
 	if err != nil || user == nil {
-		user, err = uc.repo.FindByUsername(ctx, username)
-		if err != nil || user == nil {
-			return nil, nil, ErrUserNotFound
-		}
+		return nil, nil, ErrUserNotFound
 	}
 
 	// 2. 检查用户状态
@@ -240,7 +266,7 @@ func (uc *UserUsecase) LoginByPwd(ctx context.Context, username, password string
 	// 6. 生成 JWT Token
 	sessionID := auth.NewJTI()
 	tokenPair, err := uc.jwtManager.GenerateTokenPair(
-		user.ID, // 直接使用 MongoDB ObjectID.Hex()
+		user.ID,
 		0,
 		sessionID,
 		"",
@@ -253,9 +279,9 @@ func (uc *UserUsecase) LoginByPwd(ctx context.Context, username, password string
 
 	// 7. 存储 Token Session 到 Redis（7天）
 	refreshTTL := 7 * 24 * time.Hour
-	uc.redis.SetSession(ctx, sessionID, user.ID, refreshTTL)
+	uc.redis.SetSession(ctx, sessionID, user.ID, refreshTTL) // 存储 Token Session 到 Redis（7天）
 
-	uc.log.Infof("User logged in by password: id=%s, phone=%s", user.ID, user.Phone)
+	uc.log.Infof("User logged in by password: id=%s, phone=%s, nickname=%s", user.ID, user.Phone, user.Nickname)
 	return user, &TokenPair{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
@@ -289,9 +315,10 @@ func (uc *UserUsecase) LoginBySms(ctx context.Context, phone, code string) (*Use
 
 	// 4. 用户不存在，自动注册
 	if err != nil || user == nil {
-		now := time.Now().Unix()
+		now := time.Now().Format(time.RFC3339)
 		newUser := &User{
 			Phone:      phone,
+			Nickname:   generateDefaultNickname(phone), // 自动生成昵称
 			Status:     1,
 			Role:       "user",
 			CreateTime: now,
@@ -301,7 +328,7 @@ func (uc *UserUsecase) LoginBySms(ctx context.Context, phone, code string) (*Use
 		if err != nil {
 			return nil, nil, err
 		}
-		uc.log.Infof("Auto registered user: id=%s, phone=%s", user.ID, user.Phone)
+		uc.log.Infof("Auto registered user: id=%s, phone=%s, nickname=%s", user.ID, user.Phone, user.Nickname)
 	}
 
 	// 5. 检查用户状态
@@ -312,7 +339,7 @@ func (uc *UserUsecase) LoginBySms(ctx context.Context, phone, code string) (*Use
 	// 6. 生成 JWT Token
 	sessionID := auth.NewJTI()
 	tokenPair, err := uc.jwtManager.GenerateTokenPair(
-		user.ID, // 直接使用 MongoDB ObjectID.Hex()
+		user.ID,
 		0,
 		sessionID,
 		"",
@@ -327,7 +354,7 @@ func (uc *UserUsecase) LoginBySms(ctx context.Context, phone, code string) (*Use
 	refreshTTL := 7 * 24 * time.Hour
 	uc.redis.SetSession(ctx, sessionID, user.ID, refreshTTL)
 
-	uc.log.Infof("User logged in by SMS: id=%s, phone=%s", user.ID, user.Phone)
+	uc.log.Infof("User logged in by SMS: id=%s, phone=%s, nickname=%s", user.ID, user.Phone, user.Nickname)
 	return user, &TokenPair{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
@@ -355,7 +382,7 @@ func (uc *UserUsecase) RefreshToken(ctx context.Context, refreshToken string) (*
 		return nil, ErrInvalidToken
 	}
 
-	// 3. 生成新的 Token（简化版本，不查询用户）
+	// 3. 生成新的 Token
 	newSessionID := auth.NewJTI()
 	tokenPair, err := uc.jwtManager.GenerateTokenPair(
 		claims.UserID,
@@ -373,7 +400,7 @@ func (uc *UserUsecase) RefreshToken(ctx context.Context, refreshToken string) (*
 	refreshTTL := 7 * 24 * time.Hour
 	uc.redis.SetTokenBlack(ctx, claims.ID, refreshTTL)
 
-	// 5. 存储新 Session（关联 userID）
+	// 5. 存储新 Session
 	uc.redis.SetSession(ctx, newSessionID, claims.UserID, refreshTTL)
 
 	uc.log.Infof("Token refreshed: userID=%s", claims.UserID)
@@ -419,7 +446,7 @@ func (uc *UserUsecase) GetUser(ctx context.Context, id string) (*User, error) {
 }
 
 // ========================================
-// 8. UpdateUser 更新用户信息
+// 8. UpdateUser 更新用户信息（昵称、头像）
 // ========================================
 
 func (uc *UserUsecase) UpdateUser(ctx context.Context, id, nickname, avatar string) (*User, error) {
@@ -434,8 +461,31 @@ func (uc *UserUsecase) UpdateUser(ctx context.Context, id, nickname, avatar stri
 	if avatar != "" {
 		user.Avatar = avatar
 	}
-	user.UpdateTime = time.Now().Unix()
+	user.UpdateTime = time.Now().Format(time.RFC3339)
 
 	return uc.repo.Update(ctx, user)
 }
 
+// ========================================
+// 9. UpdateProfile 完善用户信息（邮箱）
+// ========================================
+
+func (uc *UserUsecase) UpdateProfile(ctx context.Context, id, email string) (*User, error) {
+	user, err := uc.repo.FindByID(ctx, id)
+	if err != nil || user == nil {
+		return nil, ErrUserNotFound
+	}
+
+	// 邮箱唯一性校验
+	if email != "" && email != user.Email {
+		// 检查邮箱是否已被其他用户使用
+		existing, err := uc.repo.FindByEmail(ctx, email)
+		if err == nil && existing != nil {
+			return nil, ErrEmailAlreadyUsed
+		}
+		user.Email = email
+	}
+	user.UpdateTime = time.Now().Format(time.RFC3339)
+
+	return uc.repo.Update(ctx, user)
+}

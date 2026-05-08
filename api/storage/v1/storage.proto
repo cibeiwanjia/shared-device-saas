@@ -1,0 +1,1028 @@
+syntax = "proto3";
+
+package api.storage.v1;
+
+option go_package = "shared-device-saas/api/storage/v1;v1";
+
+import "google/api/annotations.proto";
+
+// ============================================
+// 快递员服务（CourierService）
+// ============================================
+
+// 快递员服务
+service CourierService {
+  // 用户申请成为快递员
+  rpc ApplyCourier (ApplyCourierRequest) returns (ApplyCourierReply) {
+    option (google.api.http) = {
+      post: "/v1/courier/apply"
+      body: "*"
+    };
+  }
+
+  // 快递员查看自身信息
+  rpc GetCourierInfo (GetCourierInfoRequest) returns (GetCourierInfoReply) {
+    option (google.api.http) = {
+      get: "/v1/courier/info"
+    };
+  }
+
+  // 管理员查询快递员列表
+  rpc GetCourierList (GetCourierListRequest) returns (GetCourierListReply) {
+    option (google.api.http) = {
+      get: "/v1/admin/courier/list"
+    };
+  }
+
+  // 管理员审核快递员申请
+  rpc ApproveCourier (ApproveCourierRequest) returns (ApproveCourierReply) {
+    option (google.api.http) = {
+      post: "/v1/admin/courier/approve"
+      body: "*"
+    };
+  }
+
+  // 管理员分配片区
+  rpc AssignZone (AssignZoneRequest) returns (AssignZoneReply) {
+    option (google.api.http) = {
+      post: "/v1/admin/courier/assign-zone"
+      body: "*"
+    };
+  }
+
+  // 管理员创建片区
+  rpc CreateZone (CreateZoneRequest) returns (CreateZoneReply) {
+    option (google.api.http) = {
+      post: "/v1/admin/zone/create"
+      body: "*"
+    };
+  }
+
+  // 管理员查询片区列表
+  rpc GetZoneList (GetZoneListRequest) returns (GetZoneListReply) {
+    option (google.api.http) = {
+      get: "/v1/admin/zone/list"
+    };
+  }
+}
+
+// ============================================
+// Courier Request/Response 定义
+// ============================================
+
+// 1. 用户申请成为快递员
+message ApplyCourierRequest {
+  string realName = 1;              // 真实姓名
+  string idCard = 2;                // 身份证号（18位）
+  string phone = 3;                 // 手机号（快递员联系方式）
+  repeated string intentAreas = 4;  // 意向商圈（申请时填写）
+}
+
+message ApplyCourierReply {
+  string courierId = 1;             // 快递员ID
+  string status = 2;                // 状态（pending_audit）
+  string message = 3;               // 提示信息
+}
+
+// 2. 快递员查看自身信息
+message GetCourierInfoRequest {
+  // 无参数，从Token解析UserID
+}
+
+message GetCourierInfoReply {
+  string courierId = 1;             // 快递员ID
+  string userId = 2;                // 关联用户ID
+  string realName = 3;              // 真实姓名
+  string phone = 4;                 // 手机号（脱敏）
+  string status = 5;                // 状态
+  string statusText = 6;            // 状态文本
+  repeated ZoneInfo zones = 7;      // 已分配片区列表
+  int32 pendingCount = 8;           // 当前待揽收订单数（仅统计展示）
+  string createTime = 9;            // 创建时间
+  string updateTime = 10;           // 更新时间
+  string rejectReason = 11;         // 拒绝原因（rejected时显示）
+}
+
+// 片区信息（用于返回）
+message ZoneInfo {
+  string zoneId = 1;                // 片区ID
+  string name = 2;                  // 片区名称
+  string street = 3;                // 街道名
+  int32 houseStart = 4;             // 门牌号起始
+  int32 houseEnd = 5;               // 门牌号结束
+  repeated string keywords = 6;     // 大厦/小区关键字
+}
+
+// 3. 管理员查询快递员列表
+message GetCourierListRequest {
+  string status = 1;                // 状态过滤（pending_audit/active/rejected/banned/resign）
+  int32 page = 2;                   // 页码（默认1）
+  int32 pageSize = 3;               // 每页数量（默认10）
+}
+
+message GetCourierListReply {
+  repeated CourierItem list = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 pageSize = 4;
+}
+
+message CourierItem {
+  string courierId = 1;             // 快递员ID
+  string userId = 2;                // 关联用户ID
+  string realName = 3;              // 真实姓名
+  string idCard = 4;                // 身份证号
+  string phone = 5;                 // 手机号
+  string status = 6;                // 状态
+  string statusText = 7;            // 状态文本
+  repeated string intentAreas = 8;  // 意向商圈
+  repeated string zoneIds = 9;      // 已分配片区ID
+  string createTime = 10;           // 创建时间
+  string rejectReason = 11;         // 拒绝原因
+}
+
+// 4. 管理员审核快递员申请
+message ApproveCourierRequest {
+  string courierId = 1;             // 快递员ID
+  bool approved = 2;                // 是否通过（true/false）
+  string reason = 3;                // 拒绝原因（approved=false时必填）
+}
+
+message ApproveCourierReply {
+  string courierId = 1;
+  string status = 2;                // 更新后的状态
+  string message = 3;
+}
+
+// 5. 管理员分配片区
+message AssignZoneRequest {
+  string courierId = 1;             // 快递员ID
+  repeated string zoneIds = 2;      // 片区ID列表
+}
+
+message AssignZoneReply {
+  string courierId = 1;
+  repeated ZoneInfo zones = 2;      // 分配的片区详情
+  string message = 3;
+}
+
+// 6. 管理员创建片区
+message CreateZoneRequest {
+  string name = 1;                  // 片区名称
+  string street = 2;                // 街道名
+  int32 houseStart = 3;             // 门牌号起始
+  int32 houseEnd = 4;               // 门牌号结束
+  repeated string keywords = 5;     // 大厦/小区关键字
+}
+
+message CreateZoneReply {
+  string zoneId = 1;                // 片区ID
+  string name = 2;
+  string message = 3;
+}
+
+// 7. 管理员查询片区列表
+message GetZoneListRequest {
+  string street = 1;                // 街道过滤（可选）
+  int32 page = 2;
+  int32 pageSize = 3;
+}
+
+message GetZoneListReply {
+  repeated ZoneItem list = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 pageSize = 4;
+}
+
+message ZoneItem {
+  string zoneId = 1;
+  string name = 2;
+  string street = 3;
+  int32 houseStart = 4;
+  int32 houseEnd = 5;
+  repeated string keywords = 6;
+  string courierId = 7;            // 关联快递员ID（片区快递员独占）
+  string status = 8;               // 片区状态（active/disabled）
+  string createTime = 9;
+}
+
+// ============================================
+// Courier 状态定义
+// ============================================
+
+// 快递员状态枚举
+enum CourierStatus {
+  COURIER_PENDING_AUDIT = 0;  // 待审核
+  COURIER_ACTIVE = 1;         // 已通过（可接单）
+  COURIER_REJECTED = 2;       // 已拒绝
+  COURIER_BANNED = 3;         // 已封禁
+  COURIER_RESIGN = 4;         // 已离职
+}
+
+// Courier 错误原因枚举
+enum CourierErrorReason {
+  COURIER_NOT_FOUND = 0;           // 快递员不存在
+  COURIER_ALREADY_APPLIED = 1;     // 已申请过（重复申请）
+  COURIER_ALREADY_APPROVED = 2;    // 已审核过
+  COURIER_NOT_ACTIVE = 3;          // 快递员状态不是active
+  COURIER_PERMISSION_DENIED = 4;   // 无管理员权限
+  COURIER_ZONE_NOT_FOUND = 5;      // 片区不存在
+  COURIER_ZONE_DISABLED = 6;       // 片区已禁用
+  COURIER_INVALID_ID_CARD = 7;     // 身份证号格式错误
+  COURIER_INVALID_PHONE = 8;       // 手机号格式错误
+}
+
+// ============================================
+// 快递服务（ExpressService）
+// ============================================
+
+// 快递服务
+service ExpressService {
+  // 创建寄件订单（派单 + 生成取件码）
+  rpc CreateExpress (CreateExpressRequest) returns (CreateExpressReply) {
+    option (google.api.http) = {
+      post: "/v1/express/send"
+      body: "*"
+    };
+  }
+
+  // 我的快递列表（分页）
+  rpc ListExpress (ListExpressRequest) returns (ListExpressReply) {
+    option (google.api.http) = {
+      get: "/v1/express/list"
+    };
+  }
+
+  // 订单详情
+  rpc GetExpress (GetExpressRequest) returns (GetExpressReply) {
+    option (google.api.http) = {
+      get: "/v1/express/{id}"
+    };
+  }
+
+  // 确认取件（驿站取件）
+  rpc PickupExpress (PickupExpressRequest) returns (PickupExpressReply) {
+    option (google.api.http) = {
+      post: "/v1/express/pickup"
+      body: "*"
+    };
+  }
+
+  // 取消订单
+  rpc CancelExpress (CancelExpressRequest) returns (CancelExpressReply) {
+    option (google.api.http) = {
+      patch: "/v1/express/{id}/cancel"
+      body: "*"
+    };
+  }
+
+  // 快递员上门核验（Phase 2 新增）
+  rpc VerifyPickup (VerifyPickupRequest) returns (VerifyPickupReply) {
+    option (google.api.http) = {
+      post: "/v1/courier/pickup/verify"
+      body: "*"
+    };
+  }
+
+  // 快递员待揽收列表（Phase 2 新增）
+  rpc GetCourierPendingOrders (GetCourierPendingOrdersRequest) returns (GetCourierPendingOrdersReply) {
+    option (google.api.http) = {
+      get: "/v1/courier/pending-orders"
+    };
+  }
+
+  // 取消超时订单（Phase 2 新增）
+  rpc CancelTimeoutOrder (CancelTimeoutOrderRequest) returns (CancelTimeoutOrderReply) {
+    option (google.api.http) = {
+      post: "/v1/order/cancel-timeout"
+      body: "*"
+    };
+  }
+
+  // 区域覆盖检查（Phase 2 新增）
+  rpc CheckCoverage (CheckCoverageRequest) returns (CheckCoverageReply) {
+    option (google.api.http) = {
+      get: "/v1/order/coverage-check"
+    };
+  }
+
+  // 管理员人工派单（Phase 2 新增）
+  rpc ManualAssignOrder (ManualAssignOrderRequest) returns (ManualAssignOrderReply) {
+    option (google.api.http) = {
+      post: "/v1/admin/order/manual-assign"
+      body: "*"
+    };
+  }
+
+  // 更新订单状态（Phase 3 新增）
+  rpc UpdateOrderStatus (UpdateOrderStatusRequest) returns (UpdateOrderStatusReply) {
+    option (google.api.http) = {
+      post: "/v1/express/{orderId}/status"
+      body: "*"
+    };
+  }
+
+  // 驿站投递（Phase 3 新增）
+  rpc DeliverToStation (DeliverToStationRequest) returns (DeliverToStationReply) {
+    option (google.api.http) = {
+      post: "/v1/express/deliver/station"
+      body: "*"
+    };
+  }
+
+  // 驿站取件（Phase 3 新增）
+  rpc PickupFromStation (PickupFromStationRequest) returns (PickupFromStationReply) {
+    option (google.api.http) = {
+      post: "/v1/express/pickup/station"
+      body: "*"
+    };
+  }
+
+  // 快递柜投递（Phase 3 新增）
+  rpc DeliverToCabinet (DeliverToCabinetRequest) returns (DeliverToCabinetReply) {
+    option (google.api.http) = {
+      post: "/v1/express/deliver/cabinet"
+      body: "*"
+    };
+  }
+
+  // 快递柜取件（Phase 3 新增）
+  rpc PickupFromCabinet (PickupFromCabinetRequest) returns (PickupFromCabinetReply) {
+    option (google.api.http) = {
+      post: "/v1/express/pickup/cabinet"
+      body: "*"
+    };
+  }
+
+  // 查询物流轨迹（Phase 3 新增）
+  rpc GetTrace (GetTraceRequest) returns (GetTraceReply) {
+    option (google.api.http) = {
+      get: "/v1/express/{orderId}/trace"
+    };
+  }
+
+  // 追加轨迹项（Phase 3 新增）
+  rpc AppendTrace (AppendTraceRequest) returns (AppendTraceReply) {
+    option (google.api.http) = {
+      post: "/v1/express/{orderId}/trace/append"
+      body: "*"
+    };
+  }
+}
+
+// ============================================
+// Request/Response 定义
+// ============================================
+
+// 1. 创建寄件订单
+message CreateExpressRequest {
+  // 寄件人信息
+  string senderName = 1;       // 寄件人姓名
+  string senderAddress = 2;    // 寄件人地址
+
+  // 收件人信息
+  string receiverName = 3;     // 收件人姓名
+  string receiverPhone = 4;    // 收件人电话（用于取件查询）
+  string receiverProvince = 5; // 省
+  string receiverCity = 6;     // 市
+  string receiverDistrict = 7; // 区
+  string receiverAddress = 8;  // 详细地址
+
+  // 物品信息
+  string itemType = 9;         // 物品类型
+  double itemWeight = 10;      // 物品重量
+  string itemRemark = 11;      // 备注
+
+  // 快递信息
+  int32 expressType = 12;      // 1普通/2加急
+  string pickupTimeStart = 13; // 期望取件开始时间
+  string pickupTimeEnd = 14;   // 期望取件结束时间
+}
+
+message CreateExpressReply {
+  string orderId = 1;          // 订单ID
+  int32 status = 2;            // 状态（101待上门取件，107待人工分配）
+  // Phase 2 新增：派单信息
+  string courierId = 3;        // 快递员ID（派单成功时返回）
+  string courierName = 4;      // 快递员姓名（脱敏）
+  string courierPhone = 5;     // 快递员电话（脱敏）
+  string shortCode = 6;        // 取件核验码（6位，用户知晓）
+  string assignedTime = 7;     // 派单时间
+  int32 matchLevel = 8;        // 匹配级别（1=门牌号，2=关键字，3=街道，0=无匹配）
+  string message = 9;          // 提示信息
+}
+
+// 2. 我的快递列表
+message ListExpressRequest {
+  int32 type = 1;              // 1待收件/2已寄出
+  int32 page = 2;              // 页码（默认1）
+  int32 pageSize = 3;          // 每页数量（默认10）
+}
+
+message ListExpressReply {
+  repeated ExpressItem list = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 pageSize = 4;
+}
+
+message ExpressItem {
+  string id = 1;               // 订单ID
+  int32 status = 2;            // 状态
+  string statusText = 3;       // 状态文本
+  string receiverName = 4;     // 收件人姓名
+  string receiverPhone = 5;    // 收件人电话（脱敏）
+  string receiverAddress = 6;  // 收件人地址
+  string pickupCode = 7;       // 取件码（待收件时显示）
+  string createTime = 8;       // 创建时间
+  string updateTime = 9;       // 更新时间
+}
+
+// 3. 订单详情
+message GetExpressRequest {
+  string id = 1;               // 订单ID
+}
+
+message GetExpressReply {
+  string id = 1;
+  int32 status = 2;
+  string statusText = 3;
+
+  // 寄件人
+  string senderName = 4;
+  string senderPhone = 5;      // 脱敏
+  string senderAddress = 6;
+
+  // 收件人
+  string receiverName = 7;
+  string receiverPhone = 8;    // 脱敏
+  string receiverProvince = 9;
+  string receiverCity = 10;
+  string receiverDistrict = 11;
+  string receiverAddress = 12;
+
+  // 物品
+  string itemType = 13;
+  double itemWeight = 14;
+  string itemRemark = 15;
+
+  // 快递
+  int32 expressType = 16;
+  string expressTypeText = 17;
+  string pickupTimeStart = 18;
+  string pickupTimeEnd = 19;
+
+  // 取件码（驿站取件）
+  string pickupCode = 20;
+  string expireTime = 21;      // 过期时间
+
+  // Phase 2 新增：派单信息
+  string courierId = 22;       // 快递员ID
+  string courierName = 23;     // 快递员姓名
+  string courierPhone = 24;    // 快递员电话（脱敏）
+  string shortCode = 25;       // 取件核验码（用户可见）
+  string assignedTime = 26;    // 派单时间
+
+  // 时间
+  string createTime = 27;
+  string updateTime = 28;
+}
+
+// 4. 确认取件
+message PickupExpressRequest {
+  string pickupCode = 1;       // 取件码
+}
+
+message PickupExpressReply {
+  bool success = 1;
+  string orderId = 2;
+  string message = 3;
+}
+
+// 5. 取消订单
+message CancelExpressRequest {
+  string id = 1;               // 订单ID
+}
+
+message CancelExpressReply {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============================================
+// 状态定义
+// ============================================
+
+// 状态枚举
+enum ExpressStatus {
+  STATUS_PENDING_PICKUP = 0;   // 101 待上门取件（已派单）
+  STATUS_PICKED_UP = 1;        // 102 已揽收
+  STATUS_IN_TRANSIT = 2;       // 103 运输中
+  STATUS_AT_STATION = 3;       // 104 已到达驿站
+  STATUS_DELIVERED = 4;        // 105 已签收
+  STATUS_CANCELLED = 5;        // 106 已取消
+  STATUS_MANUAL_ASSIGN = 6;    // 107 待人工分配
+  STATUS_TIMEOUT_PICKUP = 7;   // 108 超时未取件
+  STATUS_VERIFY_FAILED = 8;    // 109 核验失败
+}
+
+// 错误原因枚举
+enum ErrorReason {
+  EXPRESS_NOT_FOUND = 0;       // 订单不存在
+  INVALID_PICKUP_CODE = 1;     // 取件码无效
+  PICKUP_CODE_EXPIRED = 2;     // 取件码已过期
+  EXPRESS_ALREADY_DELIVERED = 3; // 已签收
+  EXPRESS_CANNOT_CANCEL = 4;   // 无法取消（状态不是101）
+  PERMISSION_DENIED = 5;       // 无权操作该订单
+  // Phase 2 新增错误
+  SHORT_CODE_MISMATCH = 6;     // 取件核验码不匹配
+  COURIER_MISMATCH = 7;        // 快递员不匹配（非本订单派单快递员）
+  SHORT_CODE_USED = 8;         // 核验码已使用
+  ORDER_STATUS_INVALID = 9;    // 订单状态异常
+  NO_COVERAGE = 10;            // 该区域无快递员覆盖
+}
+
+// ============================================
+// Phase 2 新增接口 Request/Response
+// ============================================
+
+// 6. 快递员上门核验
+message VerifyPickupRequest {
+  string orderId = 1;          // 订单ID
+  string inputShortCode = 2;   // 用户提供的取件核验码
+}
+
+message VerifyPickupReply {
+  bool success = 1;            // 核验是否成功
+  string orderId = 2;
+  int32 orderStatus = 3;       // 核验后的订单状态（102已揽收）
+  string message = 4;          // 提示信息
+}
+
+// 7. 快递员待揽收列表
+message GetCourierPendingOrdersRequest {
+  int32 page = 1;
+  int32 pageSize = 2;
+}
+
+message GetCourierPendingOrdersReply {
+  repeated PendingOrderItem list = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 pageSize = 4;
+}
+
+message PendingOrderItem {
+  string orderId = 1;          // 订单ID
+  string senderName = 2;       // 寄件人姓名（脱敏）
+  string senderPhone = 3;      // 寄件人电话（脱敏）
+  string senderAddress = 4;    // 寄件人地址
+  string pickupTimeStart = 5;  // 期望取件时间窗口
+  string pickupTimeEnd = 6;
+  string assignedTime = 7;     // 派单时间
+  string createTime = 8;
+}
+
+// 8. 取消超时订单
+message CancelTimeoutOrderRequest {
+  string orderId = 1;
+}
+
+message CancelTimeoutOrderReply {
+  bool success = 1;
+  string message = 2;
+}
+
+// 10. 区域覆盖检查
+message CheckCoverageRequest {
+  string pickupAddress = 1;    // 取件地址
+}
+
+message CheckCoverageReply {
+  bool hasCoverage = 1;        // 是否有快递员覆盖
+  string nearestStation = 2;   // 最近驿站（无覆盖时返回）
+  string message = 3;
+}
+
+// 11. 管理员人工派单
+message ManualAssignOrderRequest {
+  string orderId = 1;          // 订单ID
+  string courierId = 2;        // 指定快递员ID
+}
+
+message ManualAssignOrderReply {
+  string orderId = 1;
+  string courierId = 2;
+  string courierName = 3;
+  string shortCode = 4;        // 新取件核验码
+  string assignedTime = 5;
+  string message = 6;
+}
+
+// ============================================
+// Phase 3 新增接口：投递闭环
+// ============================================
+
+// ExpressService 新增 RPC（在原有 ExpressService 中添加）
+// 以下 RPC 需追加到 ExpressService，但 Proto 不支持增量定义，
+// 此处仅列出 Message 定义，Service 定义需手动合并到 ExpressService
+
+// 12. 更新订单状态
+message UpdateOrderStatusRequest {
+  string orderId = 1;          // 订单ID
+  int32 status = 2;            // 目标状态（只能正向流转）
+  string remark = 3;           // 备注（可选）
+}
+
+message UpdateOrderStatusReply {
+  bool success = 1;
+  string orderId = 2;
+  int32 status = 3;
+  string statusText = 4;
+  string message = 5;
+}
+
+// 13. 驿站投递
+message DeliverToStationRequest {
+  string orderId = 1;          // 订单ID
+  string stationId = 2;        // 驿站ID
+}
+
+message DeliverToStationReply {
+  bool success = 1;
+  string orderId = 2;
+  string pickupCode = 3;       // 用户取件码（6位数字）
+  string stationName = 4;      // 驿站名称
+  string stationAddress = 5;   // 驿站地址
+  int32 status = 6;            // 订单状态（104待取件）
+  string message = 7;
+}
+
+// 14. 驿站取件
+message PickupFromStationRequest {
+  string pickupCode = 1;       // 取件码（6位数字）
+}
+
+message PickupFromStationReply {
+  bool success = 1;
+  string orderId = 2;
+  int32 status = 3;            // 订单状态（105已签收）
+  string message = 4;
+}
+
+// 15. 快递柜投递
+message DeliverToCabinetRequest {
+  string orderId = 1;          // 订单ID
+  string cabinetId = 2;        // 快递柜ID
+  string gridId = 3;           // 柜格ID（可选，自动分配时不填）
+  string gridSize = 4;         // 格口大小：small/medium/large（自动分配时使用）
+}
+
+message DeliverToCabinetReply {
+  bool success = 1;
+  string orderId = 2;
+  string gridId = 3;           // 分配的柜格ID
+  string gridNo = 4;           // 格口号（如 A1/B1）
+  string pickupCode = 5;       // 用户取件码（6位数字）
+  string cabinetName = 6;      // 快递柜名称
+  string cabinetAddress = 7;   // 快递柜地址
+  int32 status = 8;            // 订单状态（104待取件）
+  string message = 9;
+}
+
+// 16. 快递柜取件
+message PickupFromCabinetRequest {
+  string pickupCode = 1;       // 取件码（6位数字）
+}
+
+message PickupFromCabinetReply {
+  bool success = 1;
+  string orderId = 2;
+  string gridId = 3;           // 释放的柜格ID
+  int32 status = 4;            // 订单状态（105已签收）
+  string message = 5;
+}
+
+// 17. 查询物流轨迹
+message GetTraceRequest {
+  string orderId = 1;          // 订单ID
+}
+
+message GetTraceReply {
+  string orderId = 1;
+  repeated TraceItem trace = 2;
+}
+
+message TraceItem {
+  int32 status = 1;            // 订单状态
+  string time = 2;             // 时间 RFC3339
+  string desc = 3;             // 状态描述
+}
+
+// 18. 追加轨迹项
+message AppendTraceRequest {
+  string orderId = 1;          // 订单ID
+  int32 status = 2;            // 状态
+  string desc = 3;             // 描述
+}
+
+message AppendTraceReply {
+  bool success = 1;
+  string orderId = 2;
+  TraceItem traceItem = 3;     // 新增的轨迹项
+  string message = 4;
+}
+
+// ============================================
+// 驿站服务（StationService）
+// ============================================
+
+service StationService {
+  // 驿站列表
+  rpc ListStations (ListStationsRequest) returns (ListStationsReply) {
+    option (google.api.http) = {
+      get: "/v1/stations"
+    };
+  }
+
+  // 驿站详情
+  rpc GetStation (GetStationRequest) returns (GetStationReply) {
+    option (google.api.http) = {
+      get: "/v1/stations/{id}"
+    };
+  }
+
+  // 创建驿站（管理员）
+  rpc CreateStation (CreateStationRequest) returns (CreateStationReply) {
+    option (google.api.http) = {
+      post: "/v1/admin/stations"
+      body: "*"
+    };
+  }
+
+  // 更新驿站（管理员）
+  rpc UpdateStation (UpdateStationRequest) returns (UpdateStationReply) {
+    option (google.api.http) = {
+      put: "/v1/admin/stations/{id}"
+      body: "*"
+    };
+  }
+}
+
+// ============================================
+// Station Request/Response
+// ============================================
+
+message ListStationsRequest {
+  int32 page = 1;
+  int32 pageSize = 2;
+}
+
+message ListStationsReply {
+  repeated StationItem list = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 pageSize = 4;
+}
+
+message StationItem {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  double lng = 4;              // 经度
+  double lat = 5;              // 纬度
+  string status = 6;           // active/closed
+  string statusText = 7;
+  string createTime = 8;
+  string updateTime = 9;
+}
+
+message GetStationRequest {
+  string id = 1;
+}
+
+message GetStationReply {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  double lng = 4;
+  double lat = 5;
+  string status = 6;
+  string statusText = 7;
+  string createTime = 8;
+  string updateTime = 9;
+}
+
+message CreateStationRequest {
+  string name = 1;
+  string address = 2;
+  double lng = 3;
+  double lat = 4;
+}
+
+message CreateStationReply {
+  string id = 1;
+  string name = 2;
+  string message = 3;
+}
+
+message UpdateStationRequest {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  double lng = 4;
+  double lat = 5;
+  string status = 6;           // active/closed
+}
+
+message UpdateStationReply {
+  string id = 1;
+  string name = 2;
+  string status = 3;
+  string message = 4;
+}
+
+// ============================================
+// 快递柜服务（CabinetService）
+// ============================================
+
+service CabinetService {
+  // 快递柜列表
+  rpc ListCabinets (ListCabinetsRequest) returns (ListCabinetsReply) {
+    option (google.api.http) = {
+      get: "/v1/cabinets"
+    };
+  }
+
+  // 快递柜详情
+  rpc GetCabinet (GetCabinetRequest) returns (GetCabinetReply) {
+    option (google.api.http) = {
+      get: "/v1/cabinets/{id}"
+    };
+  }
+
+  // 创建快递柜（管理员）
+  rpc CreateCabinet (CreateCabinetRequest) returns (CreateCabinetReply) {
+    option (google.api.http) = {
+      post: "/v1/admin/cabinets"
+      body: "*"
+    };
+  }
+
+  // 更新快递柜（管理员）
+  rpc UpdateCabinet (UpdateCabinetRequest) returns (UpdateCabinetReply) {
+    option (google.api.http) = {
+      put: "/v1/admin/cabinets/{id}"
+      body: "*"
+    };
+  }
+
+  // 柜格列表（指定快递柜）
+  rpc ListGrids (ListGridsRequest) returns (ListGridsReply) {
+    option (google.api.http) = {
+      get: "/v1/cabinets/{cabinetId}/grids"
+    };
+  }
+
+  // 空闲柜格列表
+  rpc GetAvailableGrids (GetAvailableGridsRequest) returns (GetAvailableGridsReply) {
+    option (google.api.http) = {
+      get: "/v1/cabinets/{cabinetId}/grids/available"
+    };
+  }
+
+  // 释放柜格（管理员/运维）
+  rpc ReleaseGrid (ReleaseGridRequest) returns (ReleaseGridReply) {
+    option (google.api.http) = {
+      post: "/v1/admin/grids/{gridId}/release"
+      body: "*"
+    };
+  }
+}
+
+// ============================================
+// Cabinet Request/Response
+// ============================================
+
+message ListCabinetsRequest {
+  int32 page = 1;
+  int32 pageSize = 2;
+}
+
+message ListCabinetsReply {
+  repeated CabinetItem list = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 pageSize = 4;
+}
+
+message CabinetItem {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  double lng = 4;
+  double lat = 5;
+  string status = 6;           // online/offline/fault
+  string statusText = 7;
+  int32 totalGrids = 8;        // 总柜格数（查询时聚合）
+  int32 availableGrids = 9;    // 空闲柜格数（查询时聚合）
+  string createTime = 10;
+  string updateTime = 11;
+}
+
+message GetCabinetRequest {
+  string id = 1;
+}
+
+message GetCabinetReply {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  double lng = 4;
+  double lat = 5;
+  string status = 6;
+  string statusText = 7;
+  repeated GridItem grids = 8; // 柜格详情列表
+  string createTime = 9;
+  string updateTime = 10;
+}
+
+message CreateCabinetRequest {
+  string name = 1;
+  string address = 2;
+  double lng = 3;
+  double lat = 4;
+  // 柜格配置：可后续单独创建
+}
+
+message CreateCabinetReply {
+  string id = 1;
+  string name = 2;
+  string message = 3;
+}
+
+message UpdateCabinetRequest {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  double lng = 4;
+  double lat = 5;
+  string status = 6;           // online/offline/fault
+}
+
+message UpdateCabinetReply {
+  string id = 1;
+  string name = 2;
+  string status = 3;
+  string message = 4;
+}
+
+// ============================================
+// CabinetGrid Request/Response
+// ============================================
+
+message ListGridsRequest {
+  string cabinetId = 1;
+}
+
+message ListGridsReply {
+  repeated GridItem list = 1;
+  string cabinetId = 2;
+  string cabinetName = 3;
+}
+
+message GetAvailableGridsRequest {
+  string cabinetId = 1;
+  string size = 2;             // 可选：small/medium/large
+}
+
+message GetAvailableGridsReply {
+  repeated GridItem list = 1;
+  string cabinetId = 2;
+  string cabinetName = 3;
+}
+
+message GridItem {
+  string id = 1;
+  string cabinetId = 2;
+  string gridNo = 3;           // 格口号（如 A1/B1）
+  string size = 4;             // small/medium/large
+  string status = 5;           // idle/occupied/fault
+  string statusText = 6;
+  string orderId = 7;          // 占用订单ID
+  string createTime = 8;
+  string updateTime = 9;
+}
+
+message ReleaseGridRequest {
+  string gridId = 1;
+}
+
+message ReleaseGridReply {
+  bool success = 1;
+  string gridId = 2;
+  string gridNo = 3;
+  string status = 4;
+  string message = 5;
+}

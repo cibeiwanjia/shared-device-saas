@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
+	"time"
 
+	"shared-device-saas/app/storage/internal/biz"
 	"shared-device-saas/app/storage/internal/conf"
 
 	"github.com/go-kratos/kratos/v2"
@@ -33,7 +36,10 @@ func init() {
 	flag.StringVar(&flagconf, "conf", "../../configs", "config path, eg: -conf config.yaml")
 }
 
-func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server) *kratos.App {
+func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server, timeoutHandler *biz.TimeoutHandler) *kratos.App {
+	// 启动超时处理定时任务（每分钟扫描一次）
+	go timeoutHandler.Run(context.Background(), 1*time.Minute)
+
 	return kratos.New(
 		kratos.ID(id),
 		kratos.Name(Name),

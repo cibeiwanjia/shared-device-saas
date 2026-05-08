@@ -1,15 +1,26 @@
 server:
   http:
-    addr: 0.0.0.0:8000
-    timeout: 1s
+    addr: 0.0.0.0:8002
+    timeout: 10s
   grpc:
-    addr: 0.0.0.0:9000
-    timeout: 1s
+    addr: 0.0.0.0:9002
+    timeout: 10s
+
 data:
-  database:
-    driver: mysql
-    source: root:root@tcp(127.0.0.1:3306)/test?parseTime=True&loc=Local
+  mongodb:
+    uri: mongodb://root:123456@115.190.17.186:27017/admin
+    database: test
+    collection: express_order
   redis:
-    addr: 127.0.0.1:6379
+    addr: 115.190.17.186:6379
+    password: 4ay1nkal3u8ed77y
+    db: 0
     read_timeout: 0.2s
     write_timeout: 0.2s
+  jwt:
+    access_secret: "shared-device-saas-access-secret-2024"
+    refresh_secret: "shared-device-saas-refresh-secret-2024"
+    access_expiry: "7200s"      # 2小时（7200秒）
+    refresh_expiry: "604800s"   # 7天（604800秒）
+  user_client:
+    endpoint: localhost:9000  # User服务gRPC地址（本地开发）

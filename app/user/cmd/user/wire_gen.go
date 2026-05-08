@@ -24,24 +24,27 @@ import (
 
 // wireApp init kratos application.
 func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
-	dataData, cleanup, err := data.NewData(confData, logger)
-	if err != nil {
+	dataData, cleanup, err := data.NewData(confData, logger) // 创建数据访问层
+		if err != nil {
 		return nil, nil, err
 	}
-	userRepo := data.NewUserRepo(dataData, confData, logger)
-	client, cleanup2, err := data.NewRedisClient(confData, logger)
+	userRepo := data.NewUserRepo(dataData, confData, logger)  // 创建用户仓储
+	client, cleanup2, err := data.NewRedisClient(confData, logger) // 创建 Redis 客户端
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	ihuyiClient := data.NewSMSClient(confData, logger)
-	jwtManager := biz.NewJWTManager(confData, logger)
-	userUsecase := biz.NewUserUsecase(userRepo, client, ihuyiClient, jwtManager, logger)
-	userService := service.NewUserService(userUsecase)
-	grpcServer := server.NewGRPCServer(confServer, userService, logger)
-	blacklist := data.NewRedisBlacklist(client, logger)
-	httpServer := server.NewHTTPServer(confServer, userService, jwtManager, blacklist, logger)
-	app := newApp(logger, grpcServer, httpServer)
+	ihuyiClient := data.NewSMSClient(confData, logger) // 创建短信客户端
+	jwtManager := biz.NewJWTManager(confData, logger) // 创建 JWT 管理器
+	userUsecase := biz.NewUserUsecase(userRepo, client, ihuyiClient, jwtManager, logger) // 创建用户用例
+	userService := service.NewUserService(userUsecase) // 创建用户服务
+	grpcServer := server.NewGRPCServer(confServer, userService, logger) // 创建 GRPC 服务器
+		if err != nil {
+		return nil, nil, err
+	}
+		blacklist := data.NewRedisBlacklist(client, logger) // 创建 Redis 黑名单
+		httpServer := server.NewHTTPServer(confServer, userService, jwtManager, blacklist, logger) // 创建 HTTP 服务器
+	app := newApp(logger, grpcServer, httpServer) // 创建 Kratos 应用
 	return app, func() {
 		cleanup2()
 		cleanup()

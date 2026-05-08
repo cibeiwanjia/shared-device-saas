@@ -14,37 +14,37 @@ import (
 
 // userRepo 用户仓储实现 (MongoDB 存储)
 type userRepo struct {
-	data       *Data
-	collection *mongo.Collection
-	log        *log.Helper
+	data       *Data             // 数据访问层
+	collection *mongo.Collection // 用户集合
+	log        *log.Helper       // 日志助手
 }
 
 // userDocument MongoDB 用户文档结构（小驼峰命名）
 type userDocument struct {
-	ID         primitive.ObjectID `bson:"_id,omitempty"`
-	Username   string             `bson:"username"`
-	Password   string             `bson:"password"`
-	Email      string             `bson:"email"`
-	Phone      string             `bson:"phone"`
-	Nickname   string             `bson:"nickname"`
-	Avatar     string             `bson:"avatar"`
-	InviteCode string             `bson:"inviteCode"`
-	Status     int32              `bson:"status"`
-	Role       string             `bson:"role"`
-	CreateTime int64              `bson:"createTime"`
-	UpdateTime int64              `bson:"updateTime"`
+	ID         primitive.ObjectID `bson:"_id,omitempty"` // 用户 ID（账号）
+	Password   string             `bson:"password"`      // 密码（已哈希）
+	Email      string             `bson:"email"`         // 邮箱
+	Phone      string             `bson:"phone"`         // 手机号
+	Nickname   string             `bson:"nickname"`      // 昵称
+	Avatar     string             `bson:"avatar"`        // 头像 URL
+	InviteCode string             `bson:"inviteCode"`    // 邀请码
+	Status     int32              `bson:"status"`        // 状态（0:禁用, 1:启用）
+	Role       string             `bson:"role"`          // 角色（user/admin）
+	CreateTime string             `bson:"createTime"`    // RFC3339格式
+	UpdateTime string             `bson:"updateTime"`    // RFC3339格式
 }
 
 // NewUserRepo 创建用户仓储
 func NewUserRepo(data *Data, c *conf.Data, logger log.Logger) biz.UserRepo {
 	helper := log.NewHelper(logger)
-
+	// 获取 MongoDB 配置
 	mongoCfg := c.GetMongodb()
 	if mongoCfg == nil || data.mongoDatabase == nil {
 		helper.Warn("MongoDB not configured, using in-memory storage")
 		return newInMemoryUserRepo(helper)
 	}
 
+	// 获取 MongoDB 配置中的集合
 	collection := data.GetCollection(mongoCfg.Collection)
 	if collection == nil {
 		helper.Warn("MongoDB collection not available, using in-memory storage")
@@ -62,7 +62,6 @@ func NewUserRepo(data *Data, c *conf.Data, logger log.Logger) biz.UserRepo {
 // Create 创建用户
 func (r *userRepo) Create(ctx context.Context, user *biz.User) (*biz.User, error) {
 	doc := &userDocument{
-		Username:   user.Username,
 		Password:   user.Password,
 		Email:      user.Email,
 		Phone:      user.Phone,
@@ -81,12 +80,12 @@ func (r *userRepo) Create(ctx context.Context, user *biz.User) (*biz.User, error
 		return nil, err
 	}
 
-	// 使用 ObjectID 作为用户 ID
+	// 使用 ObjectID 作为用户 ID（账号）
 	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
-		user.ID = oid.Hex() // 返回 ObjectID 的 Hex 字符串
+		user.ID = oid.Hex()
 	}
 
-	r.log.Infof("Created user in MongoDB: phone=%s, id=%s", user.Phone, user.ID)
+	r.log.Infof("Created user in MongoDB: phone=%s, id=%s, nickname=%s", user.Phone, user.ID, user.Nickname)
 	return user, nil
 }
 
@@ -106,9 +105,9 @@ func (r *userRepo) FindByPhone(ctx context.Context, phone string) (*biz.User, er
 	return r.documentToUser(&doc), nil
 }
 
-// FindByUsername 根据用户名查找
-func (r *userRepo) FindByUsername(ctx context.Context, username string) (*biz.User, error) {
-	filter := bson.M{"username": username}
+// FindByEmail 根据邮箱查找
+func (r *userRepo) FindByEmail(ctx context.Context, email string) (*biz.User, error) {
+	filter := bson.M{"email": email}
 
 	var doc userDocument
 	err := r.collection.FindOne(ctx, filter).Decode(&doc)
@@ -122,7 +121,7 @@ func (r *userRepo) FindByUsername(ctx context.Context, username string) (*biz.Us
 	return r.documentToUser(&doc), nil
 }
 
-// FindByID 根据 ID 查找（ID 是 ObjectID 的 Hex 字符串）
+// FindByID 根据 ID 查找（ID 是 ObjectID 的 Hex 字符串，即账号）
 func (r *userRepo) FindByID(ctx context.Context, id string) (*biz.User, error) {
 	// 从 Hex 字符串解析 ObjectID
 	objectID, err := primitive.ObjectIDFromHex(id)
@@ -156,7 +155,6 @@ func (r *userRepo) Update(ctx context.Context, user *biz.User) (*biz.User, error
 	filter := bson.M{"_id": objectID}
 	update := bson.M{
 		"$set": bson.M{
-			"username":   user.Username,
 			"email":      user.Email,
 			"nickname":   user.Nickname,
 			"avatar":     user.Avatar,
@@ -176,8 +174,7 @@ func (r *userRepo) Update(ctx context.Context, user *biz.User) (*biz.User, error
 // documentToUser 将 MongoDB 文档转换为业务实体
 func (r *userRepo) documentToUser(doc *userDocument) *biz.User {
 	return &biz.User{
-		ID:         doc.ID.Hex(), // ObjectID 转 Hex 字符串
-		Username:   doc.Username,
+		ID:         doc.ID.Hex(),
 		Password:   doc.Password,
 		Email:      doc.Email,
 		Phone:      doc.Phone,
@@ -196,9 +193,9 @@ func (r *userRepo) documentToUser(doc *userDocument) *biz.User {
 // ============================================
 
 type inMemoryUserRepo struct {
-	users        map[string]*biz.User      // ID -> User
-	usersByPhone map[string]*biz.User      // Phone -> User
-	usersByName  map[string]*biz.User      // Username -> User
+	users        map[string]*biz.User // ID -> User
+	usersByPhone map[string]*biz.User // Phone -> User
+	usersByEmail map[string]*biz.User // Email -> User
 	nextID       primitive.ObjectID
 	log          *log.Helper
 }
@@ -207,7 +204,7 @@ func newInMemoryUserRepo(log *log.Helper) *inMemoryUserRepo {
 	return &inMemoryUserRepo{
 		users:        make(map[string]*biz.User),
 		usersByPhone: make(map[string]*biz.User),
-		usersByName:  make(map[string]*biz.User),
+		usersByEmail: make(map[string]*biz.User),
 		nextID:       primitive.NewObjectID(),
 		log:          log,
 	}
@@ -219,10 +216,10 @@ func (r *inMemoryUserRepo) Create(ctx context.Context, user *biz.User) (*biz.Use
 	user.ID = oid.Hex()
 	r.users[user.ID] = user
 	r.usersByPhone[user.Phone] = user
-	if user.Username != "" {
-		r.usersByName[user.Username] = user
+	if user.Email != "" {
+		r.usersByEmail[user.Email] = user
 	}
-	r.log.Infof("Created user in memory: id=%s, phone=%s", user.ID, user.Phone)
+	r.log.Infof("Created user in memory: id=%s, phone=%s, nickname=%s", user.ID, user.Phone, user.Nickname)
 	return user, nil
 }
 
@@ -234,8 +231,8 @@ func (r *inMemoryUserRepo) FindByPhone(ctx context.Context, phone string) (*biz.
 	return user, nil
 }
 
-func (r *inMemoryUserRepo) FindByUsername(ctx context.Context, username string) (*biz.User, error) {
-	user, ok := r.usersByName[username]
+func (r *inMemoryUserRepo) FindByEmail(ctx context.Context, email string) (*biz.User, error) {
+	user, ok := r.usersByEmail[email]
 	if !ok {
 		return nil, nil
 	}
@@ -253,8 +250,8 @@ func (r *inMemoryUserRepo) FindByID(ctx context.Context, id string) (*biz.User, 
 func (r *inMemoryUserRepo) Update(ctx context.Context, user *biz.User) (*biz.User, error) {
 	r.users[user.ID] = user
 	r.usersByPhone[user.Phone] = user
-	if user.Username != "" {
-		r.usersByName[user.Username] = user
+	if user.Email != "" {
+		r.usersByEmail[user.Email] = user
 	}
 	return user, nil
 }

@@ -8,7 +8,7 @@ import "google/api/annotations.proto";
 
 // 用户服务
 service UserService {
-  // 注册（手机号 + 密码）
+  // 注册（手机号 + 验证码 + 密码）
   rpc Register (RegisterRequest) returns (RegisterReply) {
     option (google.api.http) = {
       post: "/v1/user/register"
@@ -48,24 +48,40 @@ service UserService {
     };
   }
 
-  // 获取当前登录用户信息（不需要传id，从Token解析）
-  rpc GetMe (GetMeRequest) returns (GetMeReply) {
+  // 获取当前登录用户信息（普通用户操作自己，从Token解析）
+  rpc GetUserMe (GetUserMeRequest) returns (GetUserMeReply) {
     option (google.api.http) = {
-      get: "/v1/me"
+      get: "/v1/user/me"
     };
   }
 
-  // 获取用户信息（需要权限检查）
-  rpc GetUser (GetUserRequest) returns (GetUserReply) {
+  // 部分更新当前登录用户信息（普通用户修改自己，从Token解析）
+  rpc UpdateUserMe (UpdateUserMeRequest) returns (UpdateUserMeReply) {
+    option (google.api.http) = {
+      patch: "/v1/user/me"
+      body: "*"
+    };
+  }
+
+  // 获取指定用户信息（管理员操作他人，需要权限检查）
+  rpc GetUserById (GetUserByIdRequest) returns (GetUserByIdReply) {
     option (google.api.http) = {
       get: "/v1/user/{id}"
     };
   }
 
-  // 更新用户信息
-  rpc UpdateUser (UpdateUserRequest) returns (UpdateUserReply) {
+  // 部分更新指定用户信息（管理员操作他人，需要权限检查）
+  rpc UpdateUserById (UpdateUserByIdRequest) returns (UpdateUserByIdReply) {
     option (google.api.http) = {
-      put: "/v1/user/{id}"
+      patch: "/v1/user/{id}"
+      body: "*"
+    };
+  }
+
+  // 部分更新个人信息（邮箱等，从Token解析）
+  rpc UpdateProfile (UpdateProfileRequest) returns (UpdateProfileReply) {
+    option (google.api.http) = {
+      patch: "/v1/user/profile"
       body: "*"
     };
   }
@@ -77,117 +93,145 @@ service UserService {
       body: "*"
     };
   }
+
+  // 内部接口：获取用户真实信息（仅服务间调用，返回真实手机号）
+  rpc InternalGetUser (InternalGetUserRequest) returns (InternalGetUserReply);
 }
 
-// 1. 账号密码登录
+// 1. 密码登录（手机号或邮箱）
 message LoginByPwdRequest {
-  string username = 1;  // 账号：手机号/用户名
-  string password = 2;  // 密码（6-20位数字、字母、下划线）
+  string phone = 1;     // 手机号（11位数字，与email二选一）
+  string email = 2;     // 邮箱（与phone二选一）
+  string password = 3;  // 密码（6-20位数字、字母、下划线）
 }
 
 // 2. 短信验证码登录（自动注册）
 message LoginBySmsRequest {
-  string phone = 1;       // 手机号（11位数字）
-  string code = 2;        // 短信验证码（6位数字）
+  string phone = 1;     // 手机号（11位数字）
+  string code = 2;      // 短信验证码（6位数字）
 }
 
-// 3. 注册（手机号+验证码+密码+邀请码）
+// 3. 注册（手机号+验证码+密码+确认密码）
 message RegisterRequest {
-  string phone = 1;       // 手机号（11位数字）
-  string smsCode = 2;     // 短信验证码（6位数字）
-  string password = 3;    // 密码（6-20位数字、字母、下划线）
-  string nickname = 4;    // 可选
-  string inviteCode = 5;  // 可选（邀请码）
+  string phone = 1;           // 手机号（11位数字）
+  string smsCode = 2;         // 短信验证码（6位数字）
+  string password = 3;        // 密码（6-20位数字、字母、下划线）
+  string confirmPassword = 4; // 确认密码（必须与密码一致）
+  string inviteCode = 5;      // 可选（邀请码）
 }
 
-// 4. 注册返回（只返回ID）
+// 4. 注册返回（只返回账号）
 message RegisterReply {
-  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
+  string id = 1;  // 用户ID/账号（MongoDB ObjectID.Hex()，用于登录）
 }
 
 // 5. 发送短信验证码
 message SendSmsRequest {
-  string phone = 1;       // 手机号（11位数字）
+  string phone = 1;  // 手机号（11位数字）
 }
 
 message SendSmsReply {
-  bool success = 1;        // 是否成功
-  int64 expire = 2;        // 过期时间（短信验证码多少秒后过期）
+  bool success = 1;   // 是否成功
+  int64 expire = 2;   // 过期时间（短信验证码多少秒后过期）
 }
 
-// 6. 登录统一返回（只保留前8个）
+// 6. 登录统一返回
 message LoginReply {
-  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
-  string username = 2;    // 用户名（密码登录用的账号）
-  string phone = 3;       // 手机号（脱敏展示，比如 138****1234）
-  string nickname = 4;    // 昵称（页面显示的名字）
-  string avatar = 5;      // 头像URL（前端显示头像）
-  string accessToken = 6; // 访问令牌（调接口必须带，证明你登录了）
-  string refreshToken = 7;// 刷新令牌（accessToken过期时，用它换新的）
-  int64 expiresIn = 8;    // 过期时间（accessToken多少秒后过期）
+  string id = 1;           // 用户ID/账号（MongoDB ObjectID.Hex()）
+  string phone = 2;        // 手机号（脱敏展示，比如 138****1234）
+  string nickname = 3;     // 昵称（页面显示的名字，如"用户_5678"）
+  string avatar = 4;       // 头像URL（前端显示头像）
+  string accessToken = 5;  // 访问令牌（调接口必须带，证明你登录了）
+  string refreshToken = 6; // 刷新令牌（accessToken过期时，用它换新的）
+  int64 expiresIn = 7;     // 过期时间（accessToken多少秒后过期）
 }
 
 // 7. 刷新Token
 message RefreshTokenRequest {
-  string refreshToken = 1; // 刷新令牌（accessToken过期时，用它换新的）
-}
-
-message RefreshTokenReply {
-  string accessToken = 1; // 访问令牌（调接口必须带，证明你登录了）
-  string refreshToken = 2; // 刷新令牌（accessToken过期时，用它换新的）
-  int64 expiresIn = 3;     // 过期时间（accessToken多少秒后过期）
+  string refreshToken = 1;  // 刷新令牌（accessToken过期时，用它换新的）
 }
 
 // 8. 退出登录
 message LogoutRequest {
-  string refreshToken = 1; // 刷新令牌（accessToken过期时，用它换新的）
+  string refreshToken = 1;  // 刷新令牌（accessToken过期时，用它换新的）
 }
 
 message LogoutReply {
-  bool success = 1;        // 是否成功
-  string message = 2;      // 提示信息（成功/失败原因）
+  bool success = 1;    // 是否成功
+  string message = 2;  // 提示信息（成功/失败原因）
 }
 
-// 9. 获取当前登录用户信息（不需要传id）
-message GetMeRequest {
+// 9. 获取当前登录用户信息（不需要传id，从Token解析）
+message GetUserMeRequest {
   // 无参数，从Token自动识别用户
 }
 
-message GetMeReply {
-  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
-  string username = 2;    // 用户名（密码登录用的账号）
-  string phone = 3;       // 手机号（脱敏展示，比如 138****1234）
-  string nickname = 4;    // 昵称（页面显示的名字）
-  string avatar = 5;      // 头像URL（前端显示头像）
+message GetUserMeReply {
+  string id = 1;          // 用户ID/账号（MongoDB ObjectID.Hex()）
+  string phone = 2;       // 手机号（脱敏展示）
+  string nickname = 3;    // 昵称（页面显示的名字）
+  string avatar = 4;      // 头像URL
+  string email = 5;       // 邮箱（可选）
   string role = 6;        // 用户角色（user/admin）
-  int64 createTime = 7;   // 创建时间（时间戳）
+  string createTime = 7;  // 创建时间（RFC3339格式）
 }
 
-// 10. 获取指定用户信息（需要权限检查）
-message GetUserRequest {
-  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
+// 10. 部分更新当前登录用户信息（从Token解析）
+message UpdateUserMeRequest {
+  string nickname = 1; // 昵称（可选，不传则不修改）
+  string avatar = 2;   // 头像URL（可选，不传则不修改）
 }
 
-message GetUserReply {
-  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
-  string username = 2;    // 用户名（密码登录用的账号）
-  string phone = 3;       // 手机号（脱敏展示，比如 138****1234）
-  string nickname = 4;    // 昵称（页面显示的名字）
-  string avatar = 5;      // 头像URL（前端显示头像）
-  int64 createTime = 6;    // 创建时间（时间戳）
+message UpdateUserMeReply {
+  string id = 1;       // 用户ID
+  string nickname = 2; // 昵称
+  string avatar = 3;   // 头像URL
 }
 
-// 11. 更新用户信息（需要权限检查）
-message UpdateUserRequest {
-  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
-  string nickname = 2;  //昵称（页面显示的名字）
-  string avatar = 3;    // 头像URL（前端显示头像）
+// 11. 获取指定用户信息（管理员操作他人，需要权限检查）
+message GetUserByIdRequest {
+  string id = 1;  // 用户ID（唯一标识）
 }
 
-message UpdateUserReply {
-  string id = 1;          // 用户ID（唯一标识，数据库里的主键）
-  string nickname = 2;    // 昵称（页面显示的名字）
-  string avatar = 3;      // 头像URL（前端显示头像）
+message GetUserByIdReply {
+  string id = 1;          // 用户ID/账号（MongoDB ObjectID.Hex()）
+  string phone = 2;       // 手机号（脱敏展示）
+  string nickname = 3;    // 昵称（页面显示的名字）
+  string avatar = 4;      // 头像URL
+  string createTime = 5;  // 创建时间（RFC3339格式）
+}
+
+// 12. 部分更新指定用户信息（管理员操作他人，需要权限检查）
+message UpdateUserByIdRequest {
+  string id = 1;       // 用户ID（唯一标识，路径参数）
+  string nickname = 2; // 昵称（可选，不传则不修改）
+  string avatar = 3;   // 头像URL（可选，不传则不修改）
+}
+
+message UpdateUserByIdReply {
+  string id = 1;       // 用户ID
+  string nickname = 2; // 昵称
+  string avatar = 3;   // 头像URL
+}
+
+// 13. 部分更新个人信息（邮箱等，从Token解析）
+message UpdateProfileRequest {
+  string email = 1;    // 邮箱（可选，不传则不修改）
+}
+
+message UpdateProfileReply {
+  string email = 1;    // 邮箱
+}
+
+// 14. 内部接口：获取用户真实信息（仅服务间调用）
+message InternalGetUserRequest {
+  string id = 1;          // 用户ID
+}
+
+message InternalGetUserReply {
+  string id = 1;          // 用户ID
+  string phone = 2;       // 手机号（真实值，不脱敏）
+  string email = 3;       // 邮箱（真实值）
 }
 
 // 错误原因枚举
@@ -202,4 +246,5 @@ enum ErrorReason {
   SMS_SEND_LIMIT = 7;      // 短信发送频率限制
   PASSWORD_LOCKED = 8;     // 密码错误次数过多被锁定
   PERMISSION_DENIED = 9;   // 权限不足（无权操作该用户）
+  PASSWORD_NOT_MATCH = 10; // 两次密码不一致
 }

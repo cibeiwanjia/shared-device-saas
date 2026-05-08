@@ -9,7 +9,7 @@ import (
 
 // Claims 自定义 JWT Claims
 type Claims struct {
-	UserID    string   `json:"user_id"`    // MongoDB ObjectID.Hex() (改为 string)
+	UserID    string   `json:"user_id"` // MongoDB ObjectID.Hex() (改为 string)
 	TenantID  int64    `json:"tenant_id"`
 	SessionID string   `json:"session_id"`
 	DeviceID  string   `json:"device_id"`
@@ -26,10 +26,10 @@ type TokenPair struct {
 
 // JWTManager JWT 签发与解析
 type JWTManager struct {
-	accessSecret  string
-	refreshSecret string
-	accessExpiry  time.Duration
-	refreshExpiry time.Duration
+	accessSecret  string        // Access Token 密钥
+	refreshSecret string        // Refresh Token 密钥
+	accessExpiry  time.Duration // Access Token 有效期（秒）
+	refreshExpiry time.Duration // Refresh Token 有效期（秒）
 }
 
 // NewJWTManager 创建 JWT 管理器
@@ -44,15 +44,15 @@ func NewJWTManager(accessSecret, refreshSecret string, accessExpiry, refreshExpi
 
 // GenerateTokenPair 签发 Access Token + Refresh Token
 func (m *JWTManager) GenerateTokenPair(userID string, tenantID int64, sessionID, deviceID string, roles []string) (*TokenPair, error) {
-	now := time.Now()
-	jti := NewJTI()
+	now := time.Now() // 当前时间
+	jti := NewJTI()   // 生成唯一的 Token ID
 
 	accessClaims := Claims{
-		UserID:    userID, // 直接使用 MongoDB ObjectID.Hex()
-		TenantID:  tenantID,
-		SessionID: sessionID,
-		DeviceID:  deviceID,
-		Roles:     roles,
+		UserID:    userID,    // 直接使用 MongoDB ObjectID.Hex()
+		TenantID:  tenantID,  // 租户ID
+		SessionID: sessionID, // Token会话ID
+		DeviceID:  deviceID,  // 设备ID
+		Roles:     roles,     // 角色
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        jti,
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -60,17 +60,17 @@ func (m *JWTManager) GenerateTokenPair(userID string, tenantID int64, sessionID,
 		},
 	}
 
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessStr, err := accessToken.SignedString([]byte(m.accessSecret))
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims) // 签发 Access Token
+	accessStr, err := accessToken.SignedString([]byte(m.accessSecret))     // 签发 Access Token 字符串
 	if err != nil {
 		return nil, fmt.Errorf("sign access token: %w", err)
 	}
 
 	refreshClaims := Claims{
-		UserID:    userID,
-		TenantID:  tenantID,
-		SessionID: sessionID,
-		DeviceID:  deviceID,
+		UserID:    userID,    // 直接使用 MongoDB ObjectID.Hex()
+		TenantID:  tenantID,  // 租户ID
+		SessionID: sessionID, // Token会话ID
+		DeviceID:  deviceID,  // 设备ID
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        NewJTI(),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -78,16 +78,16 @@ func (m *JWTManager) GenerateTokenPair(userID string, tenantID int64, sessionID,
 		},
 	}
 
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshStr, err := refreshToken.SignedString([]byte(m.refreshSecret))
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims) // 签发 Refresh Token
+	refreshStr, err := refreshToken.SignedString([]byte(m.refreshSecret))    // 签发 Refresh Token 字符串
 	if err != nil {
 		return nil, fmt.Errorf("sign refresh token: %w", err)
 	}
 
 	return &TokenPair{
-		AccessToken:  accessStr,
-		RefreshToken: refreshStr,
-		ExpiresIn:    int64(m.accessExpiry.Seconds()),
+		AccessToken:  accessStr,                       // Access Token 字符串
+		RefreshToken: refreshStr,                      // Refresh Token 字符串
+		ExpiresIn:    int64(m.accessExpiry.Seconds()), // Access Token 有效期（秒）
 	}, nil
 }
 

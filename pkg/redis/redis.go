@@ -101,9 +101,9 @@ func (c *Client) GetClient() *redis.Client {
 
 // SMSKeyPrefix 短信验证码相关 Key 前缀
 const (
-	SMSCodeKeyPrefix     = "sms:code:"      // 验证码
-	SMSCooldownKeyPrefix = "sms:cooldown:"  // 发送冷却（60秒）
-	SMSCountKeyPrefix    = "sms:count:"     // 日发送次数
+	SMSCodeKeyPrefix     = "sms:code:"     // 验证码
+	SMSCooldownKeyPrefix = "sms:cooldown:" // 发送冷却（60秒）
+	SMSCountKeyPrefix    = "sms:count:"    // 日发送次数
 )
 
 // SMSCodeTTL 验证码有效期（5分钟）
@@ -153,10 +153,10 @@ func (c *Client) GetSMSCount(ctx context.Context, phone string) (int64, error) {
 
 	count, err := c.Get(ctx, key)
 	if err != nil {
-		return 0, err
+		return 0, err // 获取今日发送次数失败
 	}
 	if count == "" {
-		return 0, nil
+		return 0, nil // 今日发送次数为0
 	}
 
 	// 转换为数字
@@ -246,7 +246,7 @@ func (c *Client) SetPwdLock(ctx context.Context, phone string) error {
 // ========================================
 
 const (
-	SessionKeyPrefix   = "session:"    // Token会话
+	SessionKeyPrefix    = "session:"     // Token会话
 	TokenBlackKeyPrefix = "token:black:" // Token黑名单
 )
 
